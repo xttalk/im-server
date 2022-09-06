@@ -8,23 +8,15 @@ import (
 )
 
 type ImHeadDataPack struct {
-	ProtocolVersion uint16     //协议版本号
-	DataFormat      DataFormat //数据交互协议,Json、Pb
-	Command         uint16     //命令码
-	Sequence        uint32     //数据序列号
-	Length          uint32     //数据包长度
+	ProtocolVersion uint16 //协议版本号
+	Command         uint16 //命令码
+	Sequence        uint32 //数据序列号
+	Length          uint32 //数据包长度
 }
 
 const (
-	DataPackHeaderLength        = 2 + 2 + 2 + 4 + 4 //数据包长度
-	ProtocolVersion      uint16 = 0x01              //协议版本号
-)
-
-type DataFormat uint16
-
-const (
-	DataFormatJson DataFormat = 0x01 //Json数据交互
-	DataFormatPb   DataFormat = 0x02 //Pb数据交互
+	DataPackHeaderLength        = 2 + 2 + 4 + 4 //数据包长度
+	ProtocolVersion      uint16 = 0x01          //协议版本号
 )
 
 type XtTalkTcpCodec struct {
@@ -39,9 +31,6 @@ func (XtTalkTcpCodec) DecodeBytes(data []byte) (*ImHeadDataPack, []byte, error) 
 	var dataHead ImHeadDataPack
 	if err := binary.Read(headBuffer, binary.LittleEndian, &dataHead.ProtocolVersion); err != nil {
 		return nil, nil, gerror.Newf("读取数据协议版本失败: %s", err.Error())
-	}
-	if err := binary.Read(headBuffer, binary.LittleEndian, &dataHead.DataFormat); err != nil {
-		return nil, nil, gerror.Newf("读取数据协议失败: %s", err.Error())
 	}
 	if err := binary.Read(headBuffer, binary.LittleEndian, &dataHead.Command); err != nil {
 		return nil, nil, gerror.Newf("读取数据命令失败: %s", err.Error())
@@ -65,9 +54,6 @@ func (XtTalkTcpCodec) Decode(conn gnet.Conn) (*ImHeadDataPack, []byte, error) {
 	var dataHead ImHeadDataPack
 	if err := binary.Read(headBuffer, binary.LittleEndian, &dataHead.ProtocolVersion); err != nil {
 		return nil, nil, gerror.Newf("读取数据协议版本失败: %s", err.Error())
-	}
-	if err := binary.Read(headBuffer, binary.LittleEndian, &dataHead.DataFormat); err != nil {
-		return nil, nil, gerror.Newf("读取数据协议失败: %s", err.Error())
 	}
 	if err := binary.Read(headBuffer, binary.LittleEndian, &dataHead.Command); err != nil {
 		return nil, nil, gerror.Newf("读取数据命令失败: %s", err.Error())
