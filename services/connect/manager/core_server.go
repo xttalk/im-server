@@ -55,17 +55,15 @@ func (c *_CoreServer) OnClose(client *Client) {
 
 // OnMessage 消息接收
 func (c *_CoreServer) OnMessage(client *Client, head *types.ImHeadDataPack, data []byte) {
-	client.Infof("收到客户端数据: %d -> %s", head.DataFormat, data)
+	client.Infof("收到客户端数据 -> %s", data)
 	//数据解包
 	//直接向业务服务层发起登录
-	client.LastDataFormat = head.DataFormat
 	//掉一个rpc
 	req := pb.LogicDataReq{
-		DataFormat: uint32(head.DataFormat),
-		Command:    pb.Packet(head.Command),
-		Data:       data,
-		SessionId:  client.SessionId,
-		ServerId:   c.ServerId,
+		Command:   pb.Packet(head.Command),
+		Data:      data,
+		SessionId: client.SessionId,
+		ServerId:  c.ServerId,
 	}
 	res := pb.LogicDataRes{}
 	if err := RpcApi.LogicData(client.Context, &req, &res); err != nil {
@@ -76,17 +74,9 @@ func (c *_CoreServer) OnMessage(client *Client, head *types.ImHeadDataPack, data
 	if !res.GetIsSend() {
 		return //不发送
 	}
-	dataFormat := types.DataFormat(res.GetDataFormat())
-	switch dataFormat {
-	case types.DataFormatJson:
-	case types.DataFormatPb:
-	default:
-		client.Warningf("未知的数据协议: %v", res.GetDataFormat())
-		client.Close()
-		return
-	}
+
 	client.Debugf("发送客户端数据: %s", res.Data)
-	if err := client.SendClientPacket(head.Sequence, res.Command, types.DataFormat(res.GetDataFormat()), res.Data); err != nil {
+	if err := client.SendClientPacket(head.Sequence, res.Command, res.Data); err != nil {
 		client.Warningf("发送客户端数据失败: %s", err.Error())
 		client.Close()
 		return

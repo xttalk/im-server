@@ -4,7 +4,6 @@ import (
 	"XtTalkServer/app/conts"
 	"XtTalkServer/global"
 	"XtTalkServer/pb"
-	"XtTalkServer/services/connect/types"
 	"XtTalkServer/services/logic/logic_model"
 	"XtTalkServer/utils"
 	"context"
@@ -86,34 +85,18 @@ func (c *LogicRpcService) LogicData(ctx context.Context, req *pb.LogicDataReq, r
 
 	data, err := func() ([]byte, error) {
 		//收到了来自通讯层发来的数据
-		reply, err := routeService(device, types.DataFormat(req.GetDataFormat()), req.GetCommand(), req.Data)
-		fmt.Println("调用结果:", reply, err)
+		reply, err := routeService(device, req.GetCommand(), req.Data)
 		if err != nil {
 			return nil, err
 		}
 		if reply == nil {
 			return nil, nil
 		}
-
 		var dataBytes []byte = nil
-		switch types.DataFormat(req.GetDataFormat()) {
-		//pb格式转换
-		case types.DataFormatPb:
-			{
-				if pb, has := reply.(proto.Message); has {
-					dataBytes, err = proto.Marshal(pb)
-				} else {
-					err = gerror.Newf("数据格式无法解析")
-				}
-			}
-		//json格式转换
-		case types.DataFormatJson:
-			{
-				dataBytes, err = gjson.Encode(reply)
-			}
-		}
-		if err != nil {
-			return nil, err
+		if pb, has := reply.(proto.Message); has {
+			dataBytes, err = proto.Marshal(pb)
+		} else {
+			return nil, gerror.Newf("数据格式无法解析")
 		}
 		return dataBytes, nil
 	}()
@@ -129,7 +112,7 @@ func (c *LogicRpcService) LogicData(ctx context.Context, req *pb.LogicDataReq, r
 	return nil
 }
 
-func routeService(device logic_model.ConnDevice, format types.DataFormat, commandId pb.Packet, data []byte) (interface{}, error) {
+func routeService(device logic_model.ConnDevice, commandId pb.Packet, data []byte) (interface{}, error) {
 	//需要登录的数据包
 	needLoginPacket := []pb.Packet{
 		pb.Packet_GetProfile,
@@ -149,7 +132,7 @@ func routeService(device logic_model.ConnDevice, format types.DataFormat, comman
 	case pb.Packet_Login: //登录
 		{
 			var params pb.PacketLoginReq
-			if err := parseData(format, data, &params); err != nil {
+			if err := proto.Unmarshal(data, &params); err != nil {
 				return nil, err
 			}
 			return Login.Login(device, &params)
@@ -157,7 +140,7 @@ func routeService(device logic_model.ConnDevice, format types.DataFormat, comman
 	case pb.Packet_GetProfile: //获取当前账号信息
 		{
 			var params pb.PacketGetProfileReq
-			if err := parseData(format, data, &params); err != nil {
+			if err := proto.Unmarshal(data, &params); err != nil {
 				return nil, err
 			}
 			return Self.GetProfile(device, &params)
@@ -165,7 +148,7 @@ func routeService(device logic_model.ConnDevice, format types.DataFormat, comman
 	case pb.Packet_ModifyProfile: //修改当前账号信息
 		{
 			var params pb.PacketModfiyProfileReq
-			if err := parseData(format, data, &params); err != nil {
+			if err := proto.Unmarshal(data, &params); err != nil {
 				return nil, err
 			}
 			return Self.ModifyProfile(device, &params)
@@ -173,7 +156,7 @@ func routeService(device logic_model.ConnDevice, format types.DataFormat, comman
 	case pb.Packet_GetFriendList: //获取好友列表
 		{
 			var params pb.PacketGetFriendListReq
-			if err := parseData(format, data, &params); err != nil {
+			if err := proto.Unmarshal(data, &params); err != nil {
 				return nil, err
 			}
 			return Friend.GetFriendList(device, &params)
@@ -181,7 +164,7 @@ func routeService(device logic_model.ConnDevice, format types.DataFormat, comman
 	case pb.Packet_GetFriend: //获取好友信息
 		{
 			var params pb.PacketGetFriendReq
-			if err := parseData(format, data, &params); err != nil {
+			if err := proto.Unmarshal(data, &params); err != nil {
 				return nil, err
 			}
 			return Friend.GetFriend(device, &params)
@@ -189,7 +172,7 @@ func routeService(device logic_model.ConnDevice, format types.DataFormat, comman
 	case pb.Packet_PrivateMsg:
 		{
 			var params pb.PacketPrivateMsg
-			if err := parseData(format, data, &params); err != nil {
+			if err := proto.Unmarshal(data, &params); err != nil {
 				return nil, err
 			}
 			if err := Friend.SendMsg(device, &params); err != nil {
@@ -198,21 +181,5 @@ func routeService(device logic_model.ConnDevice, format types.DataFormat, comman
 			return nil, nil
 		}
 	}
-
 	return nil, gerror.Newf("未知操作命令")
-}
-func parseData(format types.DataFormat, bytes []byte, v proto.Message) error {
-	switch format {
-	case types.DataFormatJson:
-		if err := gjson.Unmarshal(bytes, v); err != nil {
-			return err
-		}
-	case types.DataFormatPb:
-		if err := proto.Unmarshal(bytes, v); err != nil {
-			return err
-		}
-	default:
-		return gerror.Newf("不支持的数据协议")
-	}
-	return nil
 }

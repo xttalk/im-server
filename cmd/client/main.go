@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/gogf/gf/v2/container/gvar"
-	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/os/gctx"
 	"github.com/gogf/gf/v2/os/glog"
 	"github.com/gogf/gf/v2/os/gtime"
@@ -48,9 +47,6 @@ func main() {
 			buffer := bytes.NewBuffer(headBytes)
 			if err := binary.Read(buffer, binary.LittleEndian, &imHead.ProtocolVersion); err != nil {
 				glog.Fatalf(ctx, "解包失败ProtocolVersion: %s", err.Error())
-			}
-			if err := binary.Read(buffer, binary.LittleEndian, &imHead.DataFormat); err != nil {
-				glog.Fatalf(ctx, "解包失败DataProtocol: %s", err.Error())
 			}
 			if err := binary.Read(buffer, binary.LittleEndian, &imHead.Command); err != nil {
 				glog.Fatalf(ctx, "解包失败Command: %s", err.Error())
@@ -134,38 +130,19 @@ func input(msg string, params []string) {
 	}
 }
 func sendPack(commandId pb.Packet, pb proto.Message) error {
-	dataFormat := types.DataFormatJson
-	var _bytes []byte
-	var err error
-	switch dataFormat {
-	case types.DataFormatPb:
-		_bytes, err = proto.Marshal(pb)
-		if err != nil {
-			return err
-		}
-	case types.DataFormatJson:
-		_bytes, err = gjson.Marshal(pb)
-		if err != nil {
-			return err
-		}
-	}
-	_bytes, err = gjson.Marshal(pb)
+	_bytes, err := proto.Marshal(pb)
 	if err != nil {
 		return err
 	}
 	sendSeq := atomic.AddUint32(&seq, 1)
 	head := types.ImHeadDataPack{
 		ProtocolVersion: types.ProtocolVersion,
-		DataFormat:      dataFormat,
 		Command:         uint16(commandId),
 		Sequence:        sendSeq,
 		Length:          uint32(len(_bytes)),
 	}
 	buf := new(bytes.Buffer)
 	if err := binary.Write(buf, binary.LittleEndian, head.ProtocolVersion); err != nil {
-		return err
-	}
-	if err := binary.Write(buf, binary.LittleEndian, head.DataFormat); err != nil {
 		return err
 	}
 	if err := binary.Write(buf, binary.LittleEndian, head.Command); err != nil {
@@ -187,12 +164,7 @@ func onMessage(head types.ImHeadDataPack, data []byte) {
 	glog.Infof(ctx, "数据命令: %d", head.Command)
 	glog.Infof(ctx, "请求序列: %d", head.Sequence)
 	glog.Infof(ctx, "数据长度: %d", head.Length)
-	switch head.DataFormat {
-	case types.DataFormatJson:
-		glog.Infof(ctx, "JSON数据内容: %s", data)
-	case types.DataFormatPb:
-		glog.Infof(ctx, "PB数据内容  : %v", data)
-	}
+	glog.Infof(ctx, "PB数据内容  : %v", data)
 	glog.Debugf(ctx, "-------------------------------------------------")
 
 	switch pb.Packet(head.Command) {

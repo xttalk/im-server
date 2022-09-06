@@ -12,7 +12,6 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/gogf/gf/v2/crypto/gmd5"
-	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/os/gctx"
 	"github.com/gogf/gf/v2/os/glog"
 	"github.com/panjf2000/gnet/v2"
@@ -57,17 +56,16 @@ type ClientUserData struct {
 	Params    map[string]interface{} //更多参数存放
 }
 type Client struct {
-	Context        context.Context
-	ClientMode     ClientMode       //客户端连接模式
-	ConnectTime    int64            //连接时间
-	UserData       *ClientUserData  //没有登录则为nil
-	SessionId      string           //设备当前sessionID
-	HeartTime      int64            //上次心跳时间
-	isClose        bool             //是否已经关闭
-	ServerSeq      uint32           //服务端Seq
-	LastDataFormat types.DataFormat //最后一次发送消息时数据类型
+	Context     context.Context
+	ClientMode  ClientMode      //客户端连接模式
+	ConnectTime int64           //连接时间
+	UserData    *ClientUserData //没有登录则为nil
+	SessionId   string          //设备当前sessionID
+	HeartTime   int64           //上次心跳时间
+	isClose     bool            //是否已经关闭
+	ServerSeq   uint32          //服务端Seq
 
-	conn gnet.Conn
+	conn gnet.Conn //底层链接
 }
 
 func (c *Client) init() {
@@ -87,18 +85,7 @@ func (c *Client) SendClientPbPack(seq uint32, command pb.Packet, pb proto.Messag
 	if err != nil {
 		return err
 	}
-	resultBytes, err := c.buildPacket(seq, command, types.DataFormatPb, _bytes)
-	if err != nil {
-		return nil
-	}
-	return c.SendBytes(resultBytes)
-}
-func (c *Client) SendClientJsonPack(seq uint32, command pb.Packet, v interface{}) error {
-	_bytes, err := gjson.Marshal(v)
-	if err != nil {
-		return err
-	}
-	resultBytes, err := c.buildPacket(seq, command, types.DataFormatJson, _bytes)
+	resultBytes, err := c.buildPacket(seq, command, _bytes)
 	if err != nil {
 		return nil
 	}
@@ -106,19 +93,18 @@ func (c *Client) SendClientJsonPack(seq uint32, command pb.Packet, v interface{}
 }
 func (c *Client) SendServerBytes(command pb.Packet, _bytes []byte) error {
 	seq := atomic.AddUint32(&c.ServerSeq, 1)
-	return c.SendClientPacket(seq, command, c.LastDataFormat, _bytes)
+	return c.SendClientPacket(seq, command, _bytes)
 }
-func (c *Client) SendClientPacket(seq uint32, command pb.Packet, dataType types.DataFormat, _bytes []byte) error {
-	resultBytes, err := c.buildPacket(seq, command, dataType, _bytes)
+func (c *Client) SendClientPacket(seq uint32, command pb.Packet, _bytes []byte) error {
+	resultBytes, err := c.buildPacket(seq, command, _bytes)
 	if err != nil {
 		return nil
 	}
 	return c.SendBytes(resultBytes)
 }
-func (c *Client) buildPacket(seq uint32, command pb.Packet, dataType types.DataFormat, _bytes []byte) ([]byte, error) {
+func (c *Client) buildPacket(seq uint32, command pb.Packet, _bytes []byte) ([]byte, error) {
 	head := &types.ImHeadDataPack{
 		ProtocolVersion: types.ProtocolVersion,
-		DataFormat:      dataType,
 		Command:         uint16(command),
 		Sequence:        seq,
 		Length:          uint32(len(_bytes)),
@@ -147,11 +133,17 @@ func (c *Client) SendBytes(bytes []byte) (err error) {
 
 // Close 主动断开连接
 func (c *Client) Close() (err error) {
-	if c.conn != nil {
-		err = c.conn.Close()
-		if err == nil {
-			c.conn = nil
+	defer func() {
+		if e := recover(); e != nil {
+			fmt.Println("异常: ", e)
 		}
+	}()
+	if c.conn != nil {
+		fmt.Println("关闭", c.conn)
+		err = c.conn.Close()
+		//	if err == nil {
+		//		c.conn = nil
+		//	}
 	}
 	c.isClose = true
 	return
