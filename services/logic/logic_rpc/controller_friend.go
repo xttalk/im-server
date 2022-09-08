@@ -1,13 +1,18 @@
 package logic_rpc
 
 import (
+	"XtTalkServer/app/conts"
 	"XtTalkServer/app/model"
 	"XtTalkServer/global"
 	"XtTalkServer/pb"
 	"XtTalkServer/services/logic/logic_model"
 	"errors"
 	"fmt"
+	"github.com/gogf/gf/v2/os/glog"
+	"github.com/streadway/amqp"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
+	"time"
 )
 
 var Friend = new(_FriendController)
@@ -89,6 +94,34 @@ func (_FriendController) GetFriend(device logic_model.ConnDevice, req *pb.Packet
 func (_FriendController) SendMsg(device logic_model.ConnDevice, req *pb.PacketPrivateMsg) (fail error) {
 	//判断双方好友关系
 	fmt.Println("发送私聊消息 -> ", req.ReceiveId)
-	UserClient.SendUserPacket(device.Context, req.ReceiveId, pb.Packet_PrivateMsg, req)
+	msg := req
+
+	//补全信息
+	msg.ServerTime = time.Now().Unix()
+	msg.FromId = device.UserClient.Uid
+	//校验好友关系
+	bytes, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	if err := UserClient.SendUserPacket(device.Context, req.ReceiveId, pb.Packet_PrivateMsg, bytes); err != nil {
+		return //
+	}
+	channel, err := global.RabbitMQ.GetChannel()
+	if err != nil {
+		return
+	}
+	defer channel.Release()
+	//defer channel.Close()
+	if err := channel.CreatePublisher(conts.MQ_Exchange_PrivateMsg, "private_msg.123", amqp.Publishing{
+		Timestamp:    time.Now(),
+		DeliveryMode: amqp.Persistent,
+		ContentType:  "text/plain",
+		Body:         bytes,
+	}); err != nil {
+		glog.Warningf(device.Context, "投递私聊消息失败: %s", err.Error())
+		return
+	}
+	glog.Infof(device.Context, "投递私聊消息成功")
 	return
 }

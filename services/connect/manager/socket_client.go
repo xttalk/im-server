@@ -1,8 +1,11 @@
 package manager
 
 import (
+	"XtTalkServer/app/conts"
+	"XtTalkServer/global"
 	"XtTalkServer/pb"
 	"XtTalkServer/services/connect/types"
+	"XtTalkServer/services/logic/logic_model"
 	"XtTalkServer/utils"
 	"XtTalkServer/utils/snowflake"
 	"bytes"
@@ -12,6 +15,7 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/gogf/gf/v2/crypto/gmd5"
+	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/os/gctx"
 	"github.com/gogf/gf/v2/os/glog"
 	"github.com/panjf2000/gnet/v2"
@@ -133,20 +137,29 @@ func (c *Client) SendBytes(bytes []byte) (err error) {
 
 // Close 主动断开连接
 func (c *Client) Close() (err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			fmt.Println("异常: ", e)
-		}
-	}()
 	if c.conn != nil {
-		fmt.Println("关闭", c.conn)
 		err = c.conn.Close()
-		//	if err == nil {
-		//		c.conn = nil
-		//	}
 	}
 	c.isClose = true
 	return
+}
+func (c *Client) GetConnField() string {
+	return fmt.Sprintf(conts.RK_ClientAuth, c.SessionId)
+}
+func (c *Client) GetUserDevicesField(info *logic_model.UserClient) string {
+	return fmt.Sprintf(conts.RK_UserDevice, info.Uid)
+}
+func (c *Client) GetClientInfo() (*logic_model.UserClient, bool) {
+	connBytes, err := global.Redis.Get(c.Context, c.GetConnField()).Bytes()
+	if err != nil {
+		return nil, false //没有找到
+	}
+	//退出时候删除
+	var info logic_model.UserClient
+	if err := gjson.Unmarshal(connBytes, &info); err != nil {
+		return nil, true
+	}
+	return &info, true
 }
 
 // IsHeartTimeout 检测心跳是否超时

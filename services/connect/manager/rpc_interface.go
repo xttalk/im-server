@@ -5,11 +5,15 @@ import (
 	"context"
 )
 
-var RpcApi = new(_RpcApi)
+var RpcApi = new(rpcApi)
 
-type _RpcApi struct {
+type rpcApi struct {
 }
 
-func (_RpcApi) LogicData(ctx context.Context, req *pb.LogicDataReq, res *pb.LogicDataRes) error {
-	return LogicRpcClient.Call(ctx, "LogicData", req, res)
+func (rpcApi) LogicData(ctx context.Context, req *pb.LogicDataReq, res *pb.LogicDataRes) error {
+	client, err := RpcClient.GetLogicClient(ctx)
+	if err != nil {
+		return err
+	}
+	return client.Call(ctx, "LogicData", req, res)
 }

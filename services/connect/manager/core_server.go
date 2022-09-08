@@ -6,6 +6,7 @@ import (
 	"XtTalkServer/pb"
 	"XtTalkServer/services/connect/types"
 	"XtTalkServer/services/logic/logic_model"
+	"context"
 	"fmt"
 	"github.com/gogf/gf/v2/encoding/gjson"
 )
@@ -20,8 +21,24 @@ type _CoreServer struct {
 }
 
 // OnStart 服务已经启动
-func (c *_CoreServer) OnStart() {
+func (c *_CoreServer) OnStart(ctx context.Context) {
 	c.ServerId = global.Config.Services.Connect.Id
+}
+
+// OnShutdown 服务停止
+func (c *_CoreServer) OnShutdown(ctx context.Context) {
+	//移除当前服务器的所有用户信息
+	//for _, client := range ClientManager.Clients {
+	//	if info, has := client.GetClientInfo(); has {
+	//		//删除对应用户
+	//		if err := global.Redis.HDel(ctx, client.GetUserDevicesField(info), client.SessionId).Err(); err != nil {
+	//			client.Warningf("移除用户设备登录记录失败: %s", err.Error())
+	//		}
+	//		if err := global.Redis.Del(ctx, client.GetConnField()).Err(); err != nil {
+	//			client.Warningf("移除用户设备登录数据失败: %s", err.Error())
+	//		}
+	//	}
+	//}
 }
 
 // OnConnect 客户端连接
