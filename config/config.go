@@ -35,17 +35,28 @@ type Config struct {
 		Root    string   //根目录
 		Servers []string //服务地址列表
 	}
+	RabbitMq struct {
+		User     string //用户名
+		Password string //密码
+		Host     string //服务器地址
+		Port     int    //服务器端口
+	} `mapstructure:"rabbitmq"`
 
 	Services struct {
+		//接入层
 		Connect struct {
 			Id      uint32 //服务ID
 			WsPort  int    `mapstructure:"ws_port"`  //ws服务端口
 			TcpPort int    `mapstructure:"tcp_port"` //tcp服务端口
 			RpcPort int    `mapstructure:"rpc_port"` //rpc服务端口
 		}
+		//业务层
 		Logic struct {
 			Id      int //服务ID
 			RpcPort int `mapstructure:"rpc_port"` //rpc服务端口
+		}
+		//消息中心
+		Message struct {
 		}
 	}
 }

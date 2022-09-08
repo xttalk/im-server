@@ -62,26 +62,35 @@ func StopRpcServer(ctx context.Context) {
 type ConnectRpcService struct {
 }
 
+// SendClientPacket 向指定Session客户端发送消息
 func (c *ConnectRpcService) SendClientPacket(ctx context.Context, req *pb.ConnectSendClientReq, res *pb.ConnectSendClientRes) error {
 	glog.Infof(ctx, "收到来自: %s 发来的消息: %s", req.GetSessionId(), req.GetPayload())
-
 	client := ClientManager.GetClientBySession(req.GetSessionId())
 	if client == nil {
 		//	//设备不在线
 		res = &pb.ConnectSendClientRes{
-			RetCode: pb.ConnectSendClientRetCode_CR_Offline,
+			RetCode: pb.ConnectRetCode_CR_Offline,
 		}
 		return nil
 	}
 	if err := client.SendServerBytes(req.GetCommand(), req.GetPayload()); err != nil {
 		glog.Warningf(ctx, "接入层发送客户端数据失败: %s", err.Error())
 		res = &pb.ConnectSendClientRes{
-			RetCode: pb.ConnectSendClientRetCode_CR_Error,
+			RetCode: pb.ConnectRetCode_CR_Error,
 		}
 		return nil
 	}
 	res = &pb.ConnectSendClientRes{
-		RetCode: pb.ConnectSendClientRetCode_CR_Success,
+		RetCode: pb.ConnectRetCode_CR_Success,
+	}
+	return nil
+}
+
+// KickClientPacket 踢出客户端
+func (c *ConnectRpcService) KickClientPacket(ctx context.Context, req *pb.ConnectKickClientReq, res *pb.ConnectKickClientRes) error {
+	client := ClientManager.GetClientBySession(req.GetSessionId())
+	if client != nil {
+		return client.Close()
 	}
 	return nil
 }

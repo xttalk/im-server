@@ -7,7 +7,7 @@ import (
 
 var ClientManager *_ClientManager
 
-// InitClientManager 初始化客户端集群管理器
+// InitClientManager 初始化客户端socket管理器
 func InitClientManager() {
 	ClientManager = &_ClientManager{
 		Clients:   make(map[string]*Client),

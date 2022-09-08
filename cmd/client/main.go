@@ -1,207 +1,205 @@
 package main
 
 import (
+	"XtTalkServer/cmd/client/sdk"
 	"XtTalkServer/pb"
 	"XtTalkServer/services/connect/types"
 	"bufio"
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"github.com/gogf/gf/v2/container/gvar"
+	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gctx"
 	"github.com/gogf/gf/v2/os/glog"
 	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/gogf/gf/v2/text/gstr"
-	"github.com/golang/protobuf/proto"
-	"net"
+	"github.com/liushuochen/gotable"
+	"golang.org/x/net/context"
+	"google.golang.org/protobuf/proto"
 	"os"
-	"sync/atomic"
 	"time"
 )
 
-var conn net.Conn = nil
-var seq uint32 = 0 //序列ID
 var uid uint64 = 0
+var name string = ""
 
 // main 测试客户端
 func main() {
-	ctx := gctx.New()
-
 	uid = gvar.New(os.Args[1]).Uint64()
 	addr := gvar.New(os.Args[2]).String()
-
-	var err error = nil
-	conn, err = net.Dial("tcp", addr)
-	if err != nil {
-		glog.Fatalf(ctx, "连接服务器失败: %s", err.Error())
+	if uid == 1 {
+		name = "幻音"
+	} else {
+		name = "夏花"
 	}
-	glog.Infof(ctx, "连接服务器成功")
-	go func() {
-		for {
-			var headBytes = make([]byte, types.DataPackHeaderLength)
-			if _, err := conn.Read(headBytes); err != nil {
-				glog.Fatalf(ctx, "读取数据失败: %s", err.Error())
-				break
-			}
-			var imHead types.ImHeadDataPack
-			buffer := bytes.NewBuffer(headBytes)
-			if err := binary.Read(buffer, binary.LittleEndian, &imHead.ProtocolVersion); err != nil {
-				glog.Fatalf(ctx, "解包失败ProtocolVersion: %s", err.Error())
-			}
-			if err := binary.Read(buffer, binary.LittleEndian, &imHead.Command); err != nil {
-				glog.Fatalf(ctx, "解包失败Command: %s", err.Error())
-			}
-			if err := binary.Read(buffer, binary.LittleEndian, &imHead.Sequence); err != nil {
-				glog.Fatalf(ctx, "解包失败Command: %s", err.Error())
-			}
-			if err := binary.Read(buffer, binary.LittleEndian, &imHead.Length); err != nil {
-				glog.Fatalf(ctx, "解包失败Length: %s", err.Error())
-			}
-			var dataBytes = make([]byte, imHead.Length)
-			if _, err := conn.Read(dataBytes); err != nil {
-				glog.Fatalf(ctx, "读取内容数据失败: %s", err.Error())
-				break
-			}
-			onMessage(imHead, dataBytes)
+	for {
+		ctx := gctx.New()
+		if err := ClientExec(addr); err != nil {
+			glog.Errorf(ctx, "执行失败: %s", err.Error())
 		}
-	}()
-	fmt.Println("请输入操作命令")
+		time.Sleep(time.Second * 3)
+	}
+}
+
+var client *sdk.XtTalkClient
+var isStartCommander = false
+
+func ClientExec(addr string) error {
+	client = sdk.CreateClient()
+	if err := client.Connect(addr); err != nil {
+		return err
+	}
+	fmt.Println("连接服务器成功: ", addr)
+	if !isStartCommander {
+		isStartCommander = true
+		go ListenCommand(ListenCommander)
+	}
+	if err := client.ListenReader(OnMessage); err != nil {
+		return err
+	}
+	return nil
+}
+func ListenCommand(callback func(context.Context, string, []string) (bool, error)) {
+	fmt.Println("请输入命令...")
 	for {
 		reader := bufio.NewReader(os.Stdin)
-
-		res, _, err := reader.ReadLine()
+		bytes, _, err := reader.ReadLine()
 		if nil != err {
 			fmt.Println("请重新输入:", err.Error())
 		}
-		var msg = string(res)
-		params := gstr.Split(msg, " ")
-		if 0 >= len(params) {
-			fmt.Println("请重新输入!")
-			continue
-		}
-		fmt.Println("接收参数:", params[0], params[1:])
-		input(params[0], params[1:])
+		params := gstr.Split(string(bytes), " ")
+		ctx := gctx.New()
+		command := params[0]
+		callback(ctx, command, params[1:])
 	}
 }
-func input(msg string, params []string) {
-	switch msg {
+func OnMessage(ctx context.Context, pack types.ImHeadDataPack, bytes []byte) error {
+	//包头输出
+	headTable, err := gotable.Create("协议版本", "命令名称", "命令码", "序列号", "数据长度")
+	if err != nil {
+		glog.Warningf(ctx, "解析数据Header失败: %s", err.Error())
+		return nil
+	}
+	headTable.AddRow([]string{gvar.New(pack.ProtocolVersion).String(), gvar.New(pb.Packet(pack.Command)).String(), gvar.New(pack.Command).String(), gvar.New(pack.Sequence).String(), gvar.New(pack.Length).String()})
+	fmt.Println(headTable)
+	dumpTable := func(msg interface{}) {
+		if msg == nil {
+			fmt.Println("无数据可显示")
+			return
+		}
+		g.Dump(msg)
+		//bodyTable, err := gotable.CreateByStruct(msg)
+		//if err != nil {
+		//	glog.Warningf(ctx, "解析数据Body失败: %s", err.Error())
+		//	return
+		//}
+		//fmt.Println(bodyTable)
+	}
+	switch pb.Packet(pack.Command) {
+	case pb.Packet_Login:
+		var msg pb.PacketLoginRes
+		proto.Unmarshal(bytes, &msg)
+		dumpTable(&msg)
+	case pb.Packet_GetProfile:
+		var msg pb.PacketGetProfileRes
+		proto.Unmarshal(bytes, &msg)
+		dumpTable(&msg)
+	case pb.Packet_ModifyProfile:
+		var msg pb.PacketModfiyProfileRes
+		proto.Unmarshal(bytes, &msg)
+		dumpTable(&msg)
+	case pb.Packet_GetFriend:
+		var msg pb.PacketGetFriendRes
+		proto.Unmarshal(bytes, &msg)
+		dumpTable(&msg)
+	case pb.Packet_GetFriendList:
+		var msg pb.PacketGetFriendListRes
+		proto.Unmarshal(bytes, &msg)
+		dumpTable(&msg)
+	default:
+		glog.Warningf(ctx, "暂未支持的命令码: %s", bytes)
+	}
+
+	return nil
+}
+func ListenCommander(ctx context.Context, command string, args []string) (isTrigger bool, err error) {
+	switch command {
 	case "login": //登录
-		fmt.Println("发送结果:", sendPack(pb.Packet_Login, &pb.PacketLoginReq{
+		err = client.SendPacket(pb.Packet_Login, &pb.PacketLoginReq{
 			Token: gvar.New(uid).String(),
-		}))
+		})
 	case "getprofile": //获取个人信息
-		fmt.Println("发送结果:", sendPack(pb.Packet_GetProfile, &pb.PacketGetProfileReq{}))
-	case "modfiyprofile": //修改个人信息
-		fmt.Println("发送结果:", sendPack(pb.Packet_ModifyProfile, &pb.PacketModfiyProfileReq{
-			NickName: fmt.Sprintf("幻音%d", time.Now().Unix()),
+		err = client.SendPacket(pb.Packet_GetProfile, &pb.PacketGetProfileReq{})
+	case "modfiyprofile": //修改信息
+		err = client.SendPacket(pb.Packet_ModifyProfile, &pb.PacketModfiyProfileReq{
+			NickName: fmt.Sprintf("%s%d", name, time.Now().Unix()),
 			Age:      2,
 			Sex:      3,
 			Note:     fmt.Sprintf("签名%d", time.Now().Unix()),
-		}))
+		})
 	case "getfriendlist": //获取好友列表
-		fmt.Println("发送结果:", sendPack(pb.Packet_GetFriendList, &pb.PacketGetFriendListReq{
+		err = client.SendPacket(pb.Packet_GetFriendList, &pb.PacketGetFriendListReq{
 			Page: 1,
 			Size: 2,
-		}))
+		})
 	case "getfriend": //获取好友信息
-		sendUid := 2
+		friendId := 2
 		if uid == 2 {
-			sendUid = 1
+			friendId = 1
 		}
-		fmt.Println("发送结果:", sendPack(pb.Packet_GetFriend, &pb.PacketGetFriendReq{
-			UserId: uint64(sendUid),
-		}))
+		err = client.SendPacket(pb.Packet_GetFriend, &pb.PacketGetFriendReq{
+			UserId: uint64(friendId),
+		})
 	case "sendmsg":
 		textMsg, _ := proto.Marshal(&pb.TextMsg{
-			Content: fmt.Sprintf("我是 %d,当前时间是: %s", uid, gtime.Now().Format("Y-m-d H:i:s")),
+			Content: fmt.Sprintf("我是 %d -> %s,当前时间是: %s", uid, name, gtime.Now().Format("Y-m-d H:i:s")),
 		})
-		sendUid := 2
+		friendId := 2
 		if uid == 2 {
-			sendUid = 1
+			friendId = 1
 		}
-		fmt.Println("发送结果:", sendPack(pb.Packet_PrivateMsg, &pb.PacketPrivateMsg{
-			MsgId:      time.Now().UnixNano(), //消息ID
+		err = client.SendPacket(pb.Packet_PrivateMsg, &pb.PacketPrivateMsg{
+			MsgId:      time.Now().UnixNano(), //消息ID0
 			FromId:     uid,
-			ReceiveId:  uint64(sendUid),
+			ReceiveId:  uint64(friendId),
 			MsgType:    pb.PacketMsgType_Text,
 			Payload:    textMsg,
 			ClientTime: time.Now().Unix(),
-		}))
+		})
+	default:
+		glog.Warningf(ctx, "未知命令: %s -> %v", command, args)
+		return false, nil
 	}
-}
-func sendPack(commandId pb.Packet, pb proto.Message) error {
-	_bytes, err := proto.Marshal(pb)
-	if err != nil {
-		return err
-	}
-	sendSeq := atomic.AddUint32(&seq, 1)
-	head := types.ImHeadDataPack{
-		ProtocolVersion: types.ProtocolVersion,
-		Command:         uint16(commandId),
-		Sequence:        sendSeq,
-		Length:          uint32(len(_bytes)),
-	}
-	buf := new(bytes.Buffer)
-	if err := binary.Write(buf, binary.LittleEndian, head.ProtocolVersion); err != nil {
-		return err
-	}
-	if err := binary.Write(buf, binary.LittleEndian, head.Command); err != nil {
-		return err
-	}
-	if err := binary.Write(buf, binary.LittleEndian, head.Sequence); err != nil {
-		return err
-	}
-	if err := binary.Write(buf, binary.LittleEndian, head.Length); err != nil {
-		return err
-	}
-	resultBytes := append(buf.Bytes(), _bytes...)
-	_, err = conn.Write(resultBytes)
-	return err
-}
-func onMessage(head types.ImHeadDataPack, data []byte) {
-	ctx := gctx.New()
-	glog.Infof(ctx, "协议版本: %d", head.ProtocolVersion)
-	glog.Infof(ctx, "数据命令: %d", head.Command)
-	glog.Infof(ctx, "请求序列: %d", head.Sequence)
-	glog.Infof(ctx, "数据长度: %d", head.Length)
-	glog.Infof(ctx, "PB数据内容  : %v", data)
-	glog.Debugf(ctx, "-------------------------------------------------")
-
-	switch pb.Packet(head.Command) {
-	case pb.Packet_Login:
-		{
-			glog.Infof(ctx, "登录成功")
-		}
-	}
-
+	glog.Infof(ctx, "执行命令: %s -> 参数: %v", command, args)
+	return
 }
 
-/**
-****主动事件
-登录
----个人信息
-获取当前登录账号信息
-修改当前登录账号信息
-
----用户
-获取陌生用户信息
-
-
----好友
-获取好友列表
-获取好友信息
-删除好友
-修改好友信息
-
----私聊
-发送私聊消息
-
----群聊
-获取群组列表
-获取群信息
-获取群成员列表
-获取群成员信息
-退出群组
-踢出群成员
-
-*/
+//
+///**
+//****主动事件
+//登录
+//---个人信息
+//获取当前登录账号信息
+//修改当前登录账号信息
+//
+//---用户
+//获取陌生用户信息
+//
+//
+//---好友
+//获取好友列表
+//获取好友信息
+//删除好友
+//修改好友信息
+//
+//---私聊
+//发送私聊消息
+//
+//---群聊
+//获取群组列表
+//获取群信息
+//获取群成员列表
+//获取群成员信息
+//退出群组
+//踢出群成员
+//
+//*/
