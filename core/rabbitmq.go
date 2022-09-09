@@ -22,7 +22,7 @@ func (_rabbitmq) Initialize(ctx context.Context) {
 
 	pool, err := rabbit.NewPool(&rabbit.Config{
 		Host:              dsn,
-		MinConn:           1,  // 最少连接数量
+		MinConn:           5,  // 最少连接数量
 		MaxConn:           10, // 最大连接数量
 		MaxChannelPerConn: 10, // 每个连接的最大信道数量
 		MaxLifetime:       time.Duration(3600),

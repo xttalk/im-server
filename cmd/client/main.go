@@ -115,6 +115,10 @@ func OnMessage(ctx context.Context, pack types.ImHeadDataPack, bytes []byte) err
 		var msg pb.PacketGetFriendListRes
 		proto.Unmarshal(bytes, &msg)
 		dumpTable(&msg)
+	case pb.Packet_PrivateMsgAck:
+		var msg pb.PacketPrivateMsgAck
+		proto.Unmarshal(bytes, &msg)
+		dumpTable(&msg)
 	default:
 		glog.Warningf(ctx, "暂未支持的命令码: %s", bytes)
 	}

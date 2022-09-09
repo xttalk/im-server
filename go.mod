@@ -57,6 +57,7 @@ require (
 	github.com/juju/ratelimit v1.0.2 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kavu/go_reuseport v1.5.0 // indirect
+	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.1 // indirect
 	github.com/klauspost/reedsolomon v1.10.0 // indirect
 	github.com/liushuochen/gotable v0.0.0-20220831134725-cbcd6bb0a5f9 // indirect
@@ -69,6 +70,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/montanaflynn/stats v0.6.6 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
@@ -95,7 +97,12 @@ require (
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
+	github.com/xdg-go/scram v1.1.1 // indirect
+	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/xtaci/kcp-go v5.4.20+incompatible // indirect
+	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
+	go.mongodb.org/mongo-driver v1.10.2 // indirect
 	go.opentelemetry.io/otel v1.7.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.7.0 // indirect
 	go.opentelemetry.io/otel/trace v1.7.0 // indirect
@@ -105,7 +112,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
 	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
+	golang.org/x/sync v0.0.0-20220907140024-f12130a52804 // indirect
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261 // indirect
 	golang.org/x/text v0.3.8-0.20211105212822-18b340fc7af2 // indirect
 	golang.org/x/tools v0.1.12 // indirect

@@ -1,7 +1,7 @@
 package logic_rpc
 
 import (
-	"XtTalkServer/app/model"
+	"XtTalkServer/app/model/mysql_model"
 	"XtTalkServer/global"
 	"XtTalkServer/pb"
 	"XtTalkServer/services/logic/logic_model"
@@ -17,7 +17,7 @@ type _SelfController struct {
 
 func (_SelfController) GetProfile(device logic_model.ConnDevice, req *pb.PacketGetProfileReq) (res *pb.PacketGetProfileRes, fail error) {
 	fmt.Println("收到了来自客户端GetProfile请求")
-	var user model.User
+	var user mysql_model.User
 	if err := global.Db.Where("id = ?", device.UserClient.Uid).First(&user).Error; err != nil {
 		return nil, err //账号不存在,异常,都退出登录
 	}
@@ -39,7 +39,7 @@ func (_SelfController) ModifyProfile(device logic_model.ConnDevice, req *pb.Pack
 	if !utils.IsEmpty(req.GetNickName()) {
 		userUpdate["nickname"] = req.GetNickName()
 	}
-	if err := global.Db.Model(&model.User{}).Where("id = ?", device.UserClient.Uid).Updates(userUpdate).Error; err != nil {
+	if err := global.Db.Model(&mysql_model.User{}).Where("id = ?", device.UserClient.Uid).Updates(userUpdate).Error; err != nil {
 		glog.Warningf(device.Context, "更新用户信息失败: %s", err.Error())
 		res = &pb.PacketModfiyProfileRes{
 			RetCode: pb.RetCode_Error,

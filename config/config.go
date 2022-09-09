@@ -23,6 +23,13 @@ type Config struct {
 		Password string //密码
 		Db       int    //选择的库
 	}
+	Mongo struct {
+		Host     string //服务器
+		Port     int    //端口
+		Name     string //数据库名称
+		User     string //用户名
+		Password string //密码
+	}
 
 	//jwt配置
 	Jwt struct {

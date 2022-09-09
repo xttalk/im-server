@@ -92,13 +92,8 @@ func (c *LogicRpcService) LogicData(ctx context.Context, req *pb.LogicDataReq, r
 		if reply == nil {
 			return nil, nil
 		}
-		var dataBytes []byte = nil
-		if pb, has := reply.(proto.Message); has {
-			dataBytes, err = proto.Marshal(pb)
-		} else {
-			return nil, gerror.Newf("数据格式无法解析")
-		}
-		return dataBytes, nil
+		bytes, err := proto.Marshal(reply)
+		return bytes, err
 	}()
 	if err != nil {
 		return err
@@ -112,7 +107,7 @@ func (c *LogicRpcService) LogicData(ctx context.Context, req *pb.LogicDataReq, r
 	return nil
 }
 
-func routeService(device logic_model.ConnDevice, commandId pb.Packet, data []byte) (interface{}, error) {
+func routeService(device logic_model.ConnDevice, commandId pb.Packet, data []byte) (replyMsg proto.Message, replyErr error) {
 	//需要登录的数据包
 	needLoginPacket := []pb.Packet{
 		pb.Packet_GetProfile,
@@ -132,53 +127,56 @@ func routeService(device logic_model.ConnDevice, commandId pb.Packet, data []byt
 	case pb.Packet_Login: //登录
 		{
 			var params pb.PacketLoginReq
-			if err := proto.Unmarshal(data, &params); err != nil {
-				return nil, err
+			if replyErr = proto.Unmarshal(data, &params); replyErr != nil {
+				return
 			}
-			return Login.Login(device, &params)
+			replyMsg, replyErr = Login.Login(device, &params)
+			return
 		}
 	case pb.Packet_GetProfile: //获取当前账号信息
 		{
 			var params pb.PacketGetProfileReq
-			if err := proto.Unmarshal(data, &params); err != nil {
-				return nil, err
+			if replyErr = proto.Unmarshal(data, &params); replyErr != nil {
+				return
 			}
-			return Self.GetProfile(device, &params)
+			replyMsg, replyErr = Self.GetProfile(device, &params)
+			return
 		}
 	case pb.Packet_ModifyProfile: //修改当前账号信息
 		{
 			var params pb.PacketModfiyProfileReq
-			if err := proto.Unmarshal(data, &params); err != nil {
-				return nil, err
+			if replyErr = proto.Unmarshal(data, &params); replyErr != nil {
+				return
 			}
-			return Self.ModifyProfile(device, &params)
+			replyMsg, replyErr = Self.ModifyProfile(device, &params)
+			return
 		}
 	case pb.Packet_GetFriendList: //获取好友列表
 		{
 			var params pb.PacketGetFriendListReq
-			if err := proto.Unmarshal(data, &params); err != nil {
-				return nil, err
+			if replyErr = proto.Unmarshal(data, &params); replyErr != nil {
+				return
 			}
-			return Friend.GetFriendList(device, &params)
+			replyMsg, replyErr = Friend.GetFriendList(device, &params)
+			return
 		}
 	case pb.Packet_GetFriend: //获取好友信息
 		{
 			var params pb.PacketGetFriendReq
-			if err := proto.Unmarshal(data, &params); err != nil {
-				return nil, err
+			if replyErr = proto.Unmarshal(data, &params); replyErr != nil {
+				return
 			}
-			return Friend.GetFriend(device, &params)
+			replyMsg, replyErr = Friend.GetFriend(device, &params)
+			return
 		}
 	case pb.Packet_PrivateMsg:
 		{
 			var params pb.PacketPrivateMsg
-			if err := proto.Unmarshal(data, &params); err != nil {
-				return nil, err
+			if replyErr = proto.Unmarshal(data, &params); replyErr != nil {
+				return
 			}
-			if err := Friend.SendMsg(device, &params); err != nil {
-				return nil, err
-			}
-			return nil, nil
+			replyErr = Friend.SendMsg(device, &params)
+			return
 		}
 	}
 	return nil, gerror.Newf("未知操作命令")

@@ -1,4 +1,4 @@
-package model
+package mysql_model
 
 // User 用户表
 type User struct {

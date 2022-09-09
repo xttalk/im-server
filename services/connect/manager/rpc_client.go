@@ -24,7 +24,7 @@ func (c *rpcClient) GetLogicClient(ctx context.Context) (client.XClient, error) 
 			glog.Fatalf(ctx, "创建RPC客户端失败: %s", err.Error())
 			return nil, gerror.Wrapf(err, "创建RPC客户端失败")
 		}
-		c.logic = client.NewXClient("LogicRpcService", client.Failtry, client.RoundRobin, d, client.DefaultOption)
+		c.logic = client.NewXClient("LogicRpcService", client.Failover, client.RoundRobin, d, client.DefaultOption)
 	}
 	return c.logic, nil
 }

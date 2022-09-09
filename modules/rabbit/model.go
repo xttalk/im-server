@@ -6,6 +6,7 @@ import (
 
 type ExchangeKind string
 
+// 支持的交换机类型
 const (
 	ExchangeDirect ExchangeKind = "direct" //直连交换机
 	ExchangeFanout ExchangeKind = "fanout" //扇形交换机
