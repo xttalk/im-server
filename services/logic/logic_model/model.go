@@ -1,6 +1,8 @@
 package logic_model
 
-import "golang.org/x/net/context"
+import (
+	"golang.org/x/net/context"
+)
 
 type ConnDevice struct {
 	Context    context.Context

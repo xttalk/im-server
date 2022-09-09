@@ -32,16 +32,9 @@ func (_LoginController) Login(device logic_model.ConnDevice, req *pb.PacketLogin
 		return nil, err
 	}
 
-	if req.Token != "500" {
-		res = &pb.PacketLoginRes{
-			RetCode: pb.RetCode_Unknown,
-		}
-	} else {
-		res = &pb.PacketLoginRes{
-			RetCode: pb.RetCode_Success,
-			Uid:     uid,
-		}
+	res = &pb.PacketLoginRes{
+		RetCode: pb.RetCode_Success,
+		Uid:     uid,
 	}
-
 	return
 }

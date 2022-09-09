@@ -3,6 +3,7 @@ package logic_rpc
 import (
 	"XtTalkServer/app/conts"
 	"XtTalkServer/app/model"
+	"XtTalkServer/app/model/mysql_model"
 	"XtTalkServer/global"
 	"XtTalkServer/pb"
 	"XtTalkServer/services/logic/logic_model"
@@ -29,7 +30,7 @@ func (_FriendController) GetFriendList(device logic_model.ConnDevice, req *pb.Pa
 	}
 
 	//获取当前账号的好友列表
-	var resultList []model.UserFriend
+	var resultList []mysql_model.UserFriend
 	var resultTotal int64
 	if err := global.Db.Model(&resultList).Where("uid = ?", device.UserClient.Uid).Count(&resultTotal).Error; err != nil {
 		res = &pb.PacketGetFriendListRes{
@@ -62,7 +63,7 @@ func (_FriendController) GetFriendList(device logic_model.ConnDevice, req *pb.Pa
 }
 
 func (_FriendController) GetFriend(device logic_model.ConnDevice, req *pb.PacketGetFriendReq) (res *pb.PacketGetFriendRes, fail error) {
-	var result model.UserFriend
+	var result mysql_model.UserFriend
 	if err := global.Db.Preload("Friend", func(db *gorm.DB) *gorm.DB {
 		return db.Select("id,username,nickname")
 	}).Where("uid = ? AND fid = ?", device.UserClient.Uid, req.GetUserId()).First(&result).Error; err != nil {
@@ -99,29 +100,60 @@ func (_FriendController) SendMsg(device logic_model.ConnDevice, req *pb.PacketPr
 	//补全信息
 	msg.ServerTime = time.Now().Unix()
 	msg.FromId = device.UserClient.Uid
-	//校验好友关系
+	// todo 校验好友关系
 	bytes, err := proto.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	if err := UserClient.SendUserPacket(device.Context, req.ReceiveId, pb.Packet_PrivateMsg, bytes); err != nil {
-		return //
+	ackMsg := pb.PacketPrivateMsgAck{
+		MsgId:   msg.MsgId,
+		RetCode: pb.PacketMsgStatus_MsgSend,
 	}
-	channel, err := global.RabbitMQ.GetChannel()
-	if err != nil {
+	//消息推送给接收方的所有设备
+	if err := UserClient.SendUserBytes(device.Context, PacketSendInfo{
+		UserId: msg.ReceiveId,
+	}, pb.Packet_PrivateMsg, bytes); err != nil {
+		ackMsg.RetCode = pb.PacketMsgStatus_MsgError
+	}
+	//向当前发送端推送ack确认消息
+	if err := UserClient.SendUserPacket(device.Context, PacketSendInfo{
+		UserId:      device.UserClient.Uid,
+		SendSession: []string{device.SessionId},
+	}, pb.Packet_PrivateMsgAck, &ackMsg); err != nil {
+		glog.Warningf(device.Context, "私聊ack消息推送失败: %s", err.Error())
 		return
 	}
-	defer channel.Release()
-	//defer channel.Close()
-	if err := channel.CreatePublisher(conts.MQ_Exchange_PrivateMsg, "private_msg.123", amqp.Publishing{
-		Timestamp:    time.Now(),
-		DeliveryMode: amqp.Persistent,
-		ContentType:  "text/plain",
-		Body:         bytes,
-	}); err != nil {
-		glog.Warningf(device.Context, "投递私聊消息失败: %s", err.Error())
-		return
+	if ackMsg.RetCode == pb.PacketMsgStatus_MsgError {
+		return //停止下面操作
 	}
-	glog.Infof(device.Context, "投递私聊消息成功")
+
+	go func() {
+		//向当前发送用户推送其他端设备消息
+		if err := UserClient.SendUserBytes(device.Context, PacketSendInfo{
+			UserId:         device.UserClient.Uid,
+			ExcludeSession: []string{device.SessionId},
+		}, pb.Packet_PrivateMsg, bytes); err != nil {
+			glog.Warningf(device.Context, "推送当前其他端消息失败: %s", err.Error())
+		}
+	}()
+	go func() {
+		//消息投递到消息中心
+		channel, err := global.RabbitMQ.GetChannel()
+		if err != nil {
+			return
+		}
+		defer channel.Release()
+		routeKey := fmt.Sprintf("private_msg.%d", msg.MsgId)
+		if err := channel.CreatePublisher(conts.MQ_Exchange_PrivateMsg, routeKey, amqp.Publishing{
+			Timestamp:    time.Now(),
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "text/plain",
+			Body:         bytes,
+		}); err != nil {
+			glog.Warningf(device.Context, "投递私聊消息失败: %s", err.Error())
+			return
+		}
+		glog.Infof(device.Context, "投递私聊消息成功")
+	}()
 	return
 }

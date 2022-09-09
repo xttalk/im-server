@@ -6,6 +6,7 @@ import (
 	"XtTalkServer/utils"
 	"context"
 	"fmt"
+	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/glog"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rpcxio/rpcx-zookeeper/serverplugin"
@@ -66,23 +67,22 @@ type ConnectRpcService struct {
 func (c *ConnectRpcService) SendClientPacket(ctx context.Context, req *pb.ConnectSendClientReq, res *pb.ConnectSendClientRes) error {
 	glog.Infof(ctx, "收到来自: %s 发来的消息: %s", req.GetSessionId(), req.GetPayload())
 	client := ClientManager.GetClientBySession(req.GetSessionId())
+	defer func() {
+		g.Dump(res)
+	}()
 	if client == nil {
 		//	//设备不在线
-		res = &pb.ConnectSendClientRes{
-			RetCode: pb.ConnectRetCode_CR_Offline,
-		}
+		res.RetCode = pb.ConnectRetCode_CR_Offline
 		return nil
 	}
 	if err := client.SendServerBytes(req.GetCommand(), req.GetPayload()); err != nil {
 		glog.Warningf(ctx, "接入层发送客户端数据失败: %s", err.Error())
-		res = &pb.ConnectSendClientRes{
-			RetCode: pb.ConnectRetCode_CR_Error,
-		}
+		res.RetCode = pb.ConnectRetCode_CR_Error
 		return nil
 	}
-	res = &pb.ConnectSendClientRes{
-		RetCode: pb.ConnectRetCode_CR_Success,
-	}
+	//glog.Infof(ctx, "接入层发送客户端数据成功: %s", req.GetSessionId())
+	res.RetCode = pb.ConnectRetCode_CR_Success
+
 	return nil
 }
 

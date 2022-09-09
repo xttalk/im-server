@@ -9,6 +9,8 @@ import (
 	"github.com/gogf/gf/v2/os/gctx"
 	"github.com/gogf/gf/v2/os/glog"
 	"golang.org/x/net/context"
+	"reflect"
+	"time"
 )
 
 func RunApplication() {
@@ -17,6 +19,7 @@ func RunApplication() {
 	core.Viper.Initialize(ctx)
 	core.Mysql.Initialize(ctx)
 	core.Redis.Initialize(ctx)
+	core.Mongo.Initialize(ctx)
 	core.Rabbitmq.Initialize(ctx)
 	conf := global.Config.Services.Message
 	_ = conf
@@ -33,19 +36,34 @@ func StartConsumer() {
 		&service.PrivateMsgConsumer{},
 	}
 	for _, item := range consumerList {
+		name := reflect.TypeOf(item).Name()
+
 		ctx := gctx.New()
 		channel, err := global.RabbitMQ.GetChannel()
 		if err != nil {
-			glog.Fatalf(ctx, "获取RabbitMQ Channel失败: %s", err.Error())
+			glog.Fatalf(ctx, "[%s] 获取RabbitMQ Channel失败: %s", name, err.Error())
 		}
 		defer channel.Release()
 		if err := item.Init(ctx, channel); err != nil {
-			glog.Fatalf(ctx, "初始化消费者失败: %s", err.Error())
+			glog.Fatalf(ctx, "[%s] 初始化消费者失败: %s", name, err.Error())
 		}
-		go func(item types.IConsumer) {
-			if err := item.Start(ctx, channel); err != nil {
-				glog.Fatalf(ctx, "启动消费者失败: %s", err.Error())
+		go func(name string, item types.IConsumer) {
+			for {
+				func() {
+					ch, err := global.RabbitMQ.GetChannel()
+					if err != nil {
+						glog.Errorf(ctx, "[%s] 获取RabbitMQ Channel失败: %s ,等待重连", name, err.Error())
+						return
+					}
+					defer ch.Release()
+					if err := item.Start(ctx, ch); err != nil {
+						glog.Errorf(ctx, "[%s] 启动消费者失败: %s,等待重试", name, err.Error())
+					} else {
+						glog.Warningf(ctx, "[%s] 消费者断开,等待重连", name)
+					}
+				}()
+				time.Sleep(time.Second * 3)
 			}
-		}(item)
+		}(name, item)
 	}
 }
