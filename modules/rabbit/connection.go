@@ -1,6 +1,7 @@
 package rabbit
 
 import (
+	"context"
 	"github.com/gogf/gf/v2/os/glog"
 	"github.com/streadway/amqp"
 	"sync"
@@ -45,7 +46,7 @@ func (c *Connection) NewChannel() (*Channel, error) {
 			if c != nil {
 				c.isClose = true
 			}
-			glog.Warningf(c.pool.ctx, err.Error())
+			glog.Warningf(context.TODO(), err.Error())
 		}
 	}()
 	return channel, nil

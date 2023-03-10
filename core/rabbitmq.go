@@ -19,7 +19,7 @@ func (_rabbitmq) Initialize(ctx context.Context) {
 	conf := global.Config.RabbitMq
 	//连接rabbitmq
 	dsn := fmt.Sprintf("amqp://%s:%s@%s:%d", conf.User, conf.Password, conf.Host, conf.Port)
-
+	fmt.Println(dsn)
 	pool, err := rabbit.NewPool(&rabbit.Config{
 		Host:              dsn,
 		MinConn:           5,  // 最少连接数量
@@ -28,8 +28,7 @@ func (_rabbitmq) Initialize(ctx context.Context) {
 		MaxLifetime:       time.Duration(3600),
 	}) // 建立连接池
 	if err != nil {
-		fmt.Println(err)
-		return
+		glog.Fatalf(ctx, "RabbitMQ连接失败: %s", err.Error())
 	}
 	global.RabbitMQ = pool
 	glog.Infof(ctx, "RabbitMQ连接成功")
