@@ -1,6 +1,6 @@
 package main
 
-import "XtTalkServer/services/connect"
+import "XtTalkServer/internal/connect"
 
 func main() {
 	connect.RunApplication()

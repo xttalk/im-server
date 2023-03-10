@@ -24,21 +24,21 @@ const (
 type PacketMsgStatus int32
 
 const (
-	PacketMsgStatus_MsgError PacketMsgStatus = 0 //消息发送失败,系统未知错误
-	PacketMsgStatus_MsgSend  PacketMsgStatus = 1 //已送达
-	PacketMsgStatus_MsgRead  PacketMsgStatus = 2 //已读
+	PacketMsgStatus_MsgError PacketMsgStatus = 0 //系统未知错误
+	PacketMsgStatus_MsgAck   PacketMsgStatus = 1 //消息已可靠投递
+	PacketMsgStatus_MsgRead  PacketMsgStatus = 2 //消息已被对方查看
 )
 
 // Enum value maps for PacketMsgStatus.
 var (
 	PacketMsgStatus_name = map[int32]string{
 		0: "MsgError",
-		1: "MsgSend",
+		1: "MsgAck",
 		2: "MsgRead",
 	}
 	PacketMsgStatus_value = map[string]int32{
 		"MsgError": 0,
-		"MsgSend":  1,
+		"MsgAck":   1,
 		"MsgRead":  2,
 	}
 )
@@ -300,14 +300,17 @@ type PacketPrivateMsg struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	MsgId      int64         `protobuf:"varint,1,opt,name=msg_id,json=msgId,proto3" json:"msg_id,omitempty"`
-	FromId     uint64        `protobuf:"varint,2,opt,name=from_id,json=fromId,proto3" json:"from_id,omitempty"`                          //发送方用户ID
-	ReceiveId  uint64        `protobuf:"varint,3,opt,name=receive_id,json=receiveId,proto3" json:"receive_id,omitempty"`                 //接收方用户ID
-	MsgType    PacketMsgType `protobuf:"varint,4,opt,name=msg_type,json=msgType,proto3,enum=pb.PacketMsgType" json:"msg_type,omitempty"` //消息类型
-	Payload    []byte        `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`                                       //消息具体内容
-	ClientTime int64         `protobuf:"varint,6,opt,name=client_time,json=clientTime,proto3" json:"client_time,omitempty"`              //客户端消息发送时间
-	ServerTime int64         `protobuf:"varint,7,opt,name=server_time,json=serverTime,proto3" json:"server_time,omitempty"`              //服务端消息接收时间
+	MsgSeq     int64         `protobuf:"varint,1,opt,name=msg_seq,json=msgSeq,proto3" json:"msg_seq,omitempty"`                          //消息seq[客户端生成]
+	MsgRand    int64         `protobuf:"varint,2,opt,name=msg_rand,json=msgRand,proto3" json:"msg_rand,omitempty"`                       //消息随机值[客户端生成]
+	FromId     uint64        `protobuf:"varint,3,opt,name=from_id,json=fromId,proto3" json:"from_id,omitempty"`                          //发送方用户ID
+	ReceiveId  uint64        `protobuf:"varint,4,opt,name=receive_id,json=receiveId,proto3" json:"receive_id,omitempty"`                 //接收方用户ID
+	MsgType    PacketMsgType `protobuf:"varint,5,opt,name=msg_type,json=msgType,proto3,enum=pb.PacketMsgType" json:"msg_type,omitempty"` //消息类型
+	Payload    []byte        `protobuf:"bytes,6,opt,name=payload,proto3" json:"payload,omitempty"`                                       //消息具体内容
+	ClientTime int64         `protobuf:"varint,7,opt,name=client_time,json=clientTime,proto3" json:"client_time,omitempty"`              //客户端消息发送时间
+	ServerTime int64         `protobuf:"varint,8,opt,name=server_time,json=serverTime,proto3" json:"server_time,omitempty"`              //服务端消息接收时间
 	Extends    []byte        `protobuf:"bytes,10,opt,name=extends,proto3" json:"extends,omitempty"`                                      //字段扩展
+	MsgId      int64         `protobuf:"varint,11,opt,name=msg_id,json=msgId,proto3" json:"msg_id,omitempty"`                            //消息ID[由服务端分布式生成]
+	Seq        int64         `protobuf:"varint,12,opt,name=seq,proto3" json:"seq,omitempty"`                                             //时序ID,用于维护排序和时序顺序[由服务端生成]
 }
 
 func (x *PacketPrivateMsg) Reset() {
@@ -342,9 +345,16 @@ func (*PacketPrivateMsg) Descriptor() ([]byte, []int) {
 	return file_pb_packet_friend_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *PacketPrivateMsg) GetMsgId() int64 {
+func (x *PacketPrivateMsg) GetMsgSeq() int64 {
 	if x != nil {
-		return x.MsgId
+		return x.MsgSeq
+	}
+	return 0
+}
+
+func (x *PacketPrivateMsg) GetMsgRand() int64 {
+	if x != nil {
+		return x.MsgRand
 	}
 	return 0
 }
@@ -398,14 +408,31 @@ func (x *PacketPrivateMsg) GetExtends() []byte {
 	return nil
 }
 
-// 私聊消息确认送达
+func (x *PacketPrivateMsg) GetMsgId() int64 {
+	if x != nil {
+		return x.MsgId
+	}
+	return 0
+}
+
+func (x *PacketPrivateMsg) GetSeq() int64 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+// 消息发送状态
 type PacketPrivateMsgAck struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	MsgId   int64           `protobuf:"varint,1,opt,name=msg_id,json=msgId,proto3" json:"msg_id,omitempty"`
-	RetCode PacketMsgStatus `protobuf:"varint,2,opt,name=ret_code,json=retCode,proto3,enum=pb.PacketMsgStatus" json:"ret_code,omitempty"` //消息状态
+	MsgSeq  int64           `protobuf:"varint,1,opt,name=msg_seq,json=msgSeq,proto3" json:"msg_seq,omitempty"`                            //序列ID
+	MsgRand int64           `protobuf:"varint,2,opt,name=msg_rand,json=msgRand,proto3" json:"msg_rand,omitempty"`                         //随机字符
+	RetCode PacketMsgStatus `protobuf:"varint,3,opt,name=ret_code,json=retCode,proto3,enum=pb.PacketMsgStatus" json:"ret_code,omitempty"` //消息状态
+	MsgId   int64           `protobuf:"varint,4,opt,name=msg_id,json=msgId,proto3" json:"msg_id,omitempty"`                               //由服务端生成的分布式唯一ID
+	Seq     int64           `protobuf:"varint,5,opt,name=seq,proto3" json:"seq,omitempty"`                                                //时序ID,用于维护排序和时序顺序
 }
 
 func (x *PacketPrivateMsgAck) Reset() {
@@ -440,9 +467,16 @@ func (*PacketPrivateMsgAck) Descriptor() ([]byte, []int) {
 	return file_pb_packet_friend_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *PacketPrivateMsgAck) GetMsgId() int64 {
+func (x *PacketPrivateMsgAck) GetMsgSeq() int64 {
 	if x != nil {
-		return x.MsgId
+		return x.MsgSeq
+	}
+	return 0
+}
+
+func (x *PacketPrivateMsgAck) GetMsgRand() int64 {
+	if x != nil {
+		return x.MsgRand
 	}
 	return 0
 }
@@ -452,6 +486,475 @@ func (x *PacketPrivateMsgAck) GetRetCode() PacketMsgStatus {
 		return x.RetCode
 	}
 	return PacketMsgStatus_MsgError
+}
+
+func (x *PacketPrivateMsgAck) GetMsgId() int64 {
+	if x != nil {
+		return x.MsgId
+	}
+	return 0
+}
+
+func (x *PacketPrivateMsgAck) GetSeq() int64 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+// 拉取私聊消息列表请求
+type PacketPrivateMsgListReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	LastMsgId int64  `protobuf:"varint,1,opt,name=last_msg_id,json=lastMsgId,proto3" json:"last_msg_id,omitempty"` //分割ID,留空代表拉取最新消息
+	Size      int64  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`                              //拉取消息的数量,默认为20条
+	UserId    uint64 `protobuf:"varint,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`            //对方用户ID
+}
+
+func (x *PacketPrivateMsgListReq) Reset() {
+	*x = PacketPrivateMsgListReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pb_packet_friend_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PacketPrivateMsgListReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PacketPrivateMsgListReq) ProtoMessage() {}
+
+func (x *PacketPrivateMsgListReq) ProtoReflect() protoreflect.Message {
+	mi := &file_pb_packet_friend_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PacketPrivateMsgListReq.ProtoReflect.Descriptor instead.
+func (*PacketPrivateMsgListReq) Descriptor() ([]byte, []int) {
+	return file_pb_packet_friend_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *PacketPrivateMsgListReq) GetLastMsgId() int64 {
+	if x != nil {
+		return x.LastMsgId
+	}
+	return 0
+}
+
+func (x *PacketPrivateMsgListReq) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *PacketPrivateMsgListReq) GetUserId() uint64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+type PacketPrivateMsgListResp struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	RetCode     RetCode             `protobuf:"varint,1,opt,name=ret_code,json=retCode,proto3,enum=pb.RetCode" json:"ret_code,omitempty"` //状态码
+	List        []*PacketPrivateMsg `protobuf:"bytes,2,rep,name=list,proto3" json:"list,omitempty"`                                       //消息列表
+	IsCompleted bool                `protobuf:"varint,3,opt,name=is_completed,json=isCompleted,proto3" json:"is_completed,omitempty"`     //是否拉取完毕
+}
+
+func (x *PacketPrivateMsgListResp) Reset() {
+	*x = PacketPrivateMsgListResp{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pb_packet_friend_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PacketPrivateMsgListResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PacketPrivateMsgListResp) ProtoMessage() {}
+
+func (x *PacketPrivateMsgListResp) ProtoReflect() protoreflect.Message {
+	mi := &file_pb_packet_friend_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PacketPrivateMsgListResp.ProtoReflect.Descriptor instead.
+func (*PacketPrivateMsgListResp) Descriptor() ([]byte, []int) {
+	return file_pb_packet_friend_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PacketPrivateMsgListResp) GetRetCode() RetCode {
+	if x != nil {
+		return x.RetCode
+	}
+	return RetCode_Unknown
+}
+
+func (x *PacketPrivateMsgListResp) GetList() []*PacketPrivateMsg {
+	if x != nil {
+		return x.List
+	}
+	return nil
+}
+
+func (x *PacketPrivateMsgListResp) GetIsCompleted() bool {
+	if x != nil {
+		return x.IsCompleted
+	}
+	return false
+}
+
+// 删除好友请求
+type PacketRemoveFriendReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	UserId uint64 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` //好友ID(不是关系ID,是好友的用户ID)
+}
+
+func (x *PacketRemoveFriendReq) Reset() {
+	*x = PacketRemoveFriendReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pb_packet_friend_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PacketRemoveFriendReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PacketRemoveFriendReq) ProtoMessage() {}
+
+func (x *PacketRemoveFriendReq) ProtoReflect() protoreflect.Message {
+	mi := &file_pb_packet_friend_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PacketRemoveFriendReq.ProtoReflect.Descriptor instead.
+func (*PacketRemoveFriendReq) Descriptor() ([]byte, []int) {
+	return file_pb_packet_friend_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *PacketRemoveFriendReq) GetUserId() uint64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+// 删除好友响应
+type PacketRemoveFriendResp struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	RetCode RetCode `protobuf:"varint,1,opt,name=ret_code,json=retCode,proto3,enum=pb.RetCode" json:"ret_code,omitempty"` //状态码
+}
+
+func (x *PacketRemoveFriendResp) Reset() {
+	*x = PacketRemoveFriendResp{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pb_packet_friend_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PacketRemoveFriendResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PacketRemoveFriendResp) ProtoMessage() {}
+
+func (x *PacketRemoveFriendResp) ProtoReflect() protoreflect.Message {
+	mi := &file_pb_packet_friend_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PacketRemoveFriendResp.ProtoReflect.Descriptor instead.
+func (*PacketRemoveFriendResp) Descriptor() ([]byte, []int) {
+	return file_pb_packet_friend_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *PacketRemoveFriendResp) GetRetCode() RetCode {
+	if x != nil {
+		return x.RetCode
+	}
+	return RetCode_Unknown
+}
+
+// 发起好友申请请求
+type PacketFriendApplyReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	UserId uint64 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` //用户ID
+	Reason string `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`                //申请原因
+}
+
+func (x *PacketFriendApplyReq) Reset() {
+	*x = PacketFriendApplyReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pb_packet_friend_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PacketFriendApplyReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PacketFriendApplyReq) ProtoMessage() {}
+
+func (x *PacketFriendApplyReq) ProtoReflect() protoreflect.Message {
+	mi := &file_pb_packet_friend_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PacketFriendApplyReq.ProtoReflect.Descriptor instead.
+func (*PacketFriendApplyReq) Descriptor() ([]byte, []int) {
+	return file_pb_packet_friend_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PacketFriendApplyReq) GetUserId() uint64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *PacketFriendApplyReq) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// 发起好友申请请求响应
+type PacketFriendApplyResp struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	RetCode          RetCode `protobuf:"varint,1,opt,name=ret_code,json=retCode,proto3,enum=pb.RetCode" json:"ret_code,omitempty"`              //状态码
+	IsCompleteFriend bool    `protobuf:"varint,2,opt,name=is_complete_friend,json=isCompleteFriend,proto3" json:"is_complete_friend,omitempty"` //是否成为好友,前提是对方发起过好友申请
+	Id               int32   `protobuf:"varint,3,opt,name=id,proto3" json:"id,omitempty"`                                                       //验证ID
+}
+
+func (x *PacketFriendApplyResp) Reset() {
+	*x = PacketFriendApplyResp{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pb_packet_friend_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PacketFriendApplyResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PacketFriendApplyResp) ProtoMessage() {}
+
+func (x *PacketFriendApplyResp) ProtoReflect() protoreflect.Message {
+	mi := &file_pb_packet_friend_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PacketFriendApplyResp.ProtoReflect.Descriptor instead.
+func (*PacketFriendApplyResp) Descriptor() ([]byte, []int) {
+	return file_pb_packet_friend_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *PacketFriendApplyResp) GetRetCode() RetCode {
+	if x != nil {
+		return x.RetCode
+	}
+	return RetCode_Unknown
+}
+
+func (x *PacketFriendApplyResp) GetIsCompleteFriend() bool {
+	if x != nil {
+		return x.IsCompleteFriend
+	}
+	return false
+}
+
+func (x *PacketFriendApplyResp) GetId() int32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+// 处理好友申请
+type PacketFriendHandleReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id           int32  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`                                        //好友申请验证ID
+	Flag         bool   `protobuf:"varint,2,opt,name=flag,proto3" json:"flag,omitempty"`                                    //验证状态,true=同意,false=拒绝
+	RejectReason string `protobuf:"bytes,3,opt,name=reject_reason,json=rejectReason,proto3" json:"reject_reason,omitempty"` //拒绝原因
+}
+
+func (x *PacketFriendHandleReq) Reset() {
+	*x = PacketFriendHandleReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pb_packet_friend_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PacketFriendHandleReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PacketFriendHandleReq) ProtoMessage() {}
+
+func (x *PacketFriendHandleReq) ProtoReflect() protoreflect.Message {
+	mi := &file_pb_packet_friend_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PacketFriendHandleReq.ProtoReflect.Descriptor instead.
+func (*PacketFriendHandleReq) Descriptor() ([]byte, []int) {
+	return file_pb_packet_friend_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *PacketFriendHandleReq) GetId() int32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *PacketFriendHandleReq) GetFlag() bool {
+	if x != nil {
+		return x.Flag
+	}
+	return false
+}
+
+func (x *PacketFriendHandleReq) GetRejectReason() string {
+	if x != nil {
+		return x.RejectReason
+	}
+	return ""
+}
+
+// 处理好友申请结果
+type PacketFriendHandleResp struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	RetCode RetCode `protobuf:"varint,1,opt,name=ret_code,json=retCode,proto3,enum=pb.RetCode" json:"ret_code,omitempty"` //状态码
+}
+
+func (x *PacketFriendHandleResp) Reset() {
+	*x = PacketFriendHandleResp{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pb_packet_friend_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PacketFriendHandleResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PacketFriendHandleResp) ProtoMessage() {}
+
+func (x *PacketFriendHandleResp) ProtoReflect() protoreflect.Message {
+	mi := &file_pb_packet_friend_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PacketFriendHandleResp.ProtoReflect.Descriptor instead.
+func (*PacketFriendHandleResp) Descriptor() ([]byte, []int) {
+	return file_pb_packet_friend_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *PacketFriendHandleResp) GetRetCode() RetCode {
+	if x != nil {
+		return x.RetCode
+	}
+	return RetCode_Unknown
 }
 
 var File_pb_packet_friend_proto protoreflect.FileDescriptor
@@ -483,35 +986,89 @@ var file_pb_packet_friend_proto_rawDesc = []byte{
 	0x32, 0x0b, 0x2e, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x74, 0x43, 0x6f, 0x64, 0x65, 0x52, 0x07, 0x72,
 	0x65, 0x74, 0x43, 0x6f, 0x64, 0x65, 0x12, 0x22, 0x0a, 0x06, 0x66, 0x72, 0x69, 0x65, 0x6e, 0x64,
 	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x70, 0x62, 0x2e, 0x46, 0x72, 0x69, 0x65,
-	0x6e, 0x64, 0x52, 0x06, 0x66, 0x72, 0x69, 0x65, 0x6e, 0x64, 0x22, 0x85, 0x02, 0x0a, 0x10, 0x50,
+	0x6e, 0x64, 0x52, 0x06, 0x66, 0x72, 0x69, 0x65, 0x6e, 0x64, 0x22, 0xcb, 0x02, 0x0a, 0x10, 0x50,
 	0x61, 0x63, 0x6b, 0x65, 0x74, 0x50, 0x72, 0x69, 0x76, 0x61, 0x74, 0x65, 0x4d, 0x73, 0x67, 0x12,
-	0x15, 0x0a, 0x06, 0x6d, 0x73, 0x67, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52,
-	0x05, 0x6d, 0x73, 0x67, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x66, 0x72, 0x6f, 0x6d, 0x5f, 0x69,
-	0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x06, 0x66, 0x72, 0x6f, 0x6d, 0x49, 0x64, 0x12,
-	0x1d, 0x0a, 0x0a, 0x72, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x03, 0x20,
-	0x01, 0x28, 0x04, 0x52, 0x09, 0x72, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x49, 0x64, 0x12, 0x2c,
-	0x0a, 0x08, 0x6d, 0x73, 0x67, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0e,
-	0x32, 0x11, 0x2e, 0x70, 0x62, 0x2e, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x4d, 0x73, 0x67, 0x54,
-	0x79, 0x70, 0x65, 0x52, 0x07, 0x6d, 0x73, 0x67, 0x54, 0x79, 0x70, 0x65, 0x12, 0x18, 0x0a, 0x07,
-	0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x07, 0x70,
-	0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x1f, 0x0a, 0x0b, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74,
-	0x5f, 0x74, 0x69, 0x6d, 0x65, 0x18, 0x06, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0a, 0x63, 0x6c, 0x69,
-	0x65, 0x6e, 0x74, 0x54, 0x69, 0x6d, 0x65, 0x12, 0x1f, 0x0a, 0x0b, 0x73, 0x65, 0x72, 0x76, 0x65,
-	0x72, 0x5f, 0x74, 0x69, 0x6d, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0a, 0x73, 0x65,
-	0x72, 0x76, 0x65, 0x72, 0x54, 0x69, 0x6d, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x65, 0x78, 0x74, 0x65,
-	0x6e, 0x64, 0x73, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x07, 0x65, 0x78, 0x74, 0x65, 0x6e,
-	0x64, 0x73, 0x22, 0x5c, 0x0a, 0x13, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x50, 0x72, 0x69, 0x76,
-	0x61, 0x74, 0x65, 0x4d, 0x73, 0x67, 0x41, 0x63, 0x6b, 0x12, 0x15, 0x0a, 0x06, 0x6d, 0x73, 0x67,
-	0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x6d, 0x73, 0x67, 0x49, 0x64,
-	0x12, 0x2e, 0x0a, 0x08, 0x72, 0x65, 0x74, 0x5f, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x0e, 0x32, 0x13, 0x2e, 0x70, 0x62, 0x2e, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x4d, 0x73,
-	0x67, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x07, 0x72, 0x65, 0x74, 0x43, 0x6f, 0x64, 0x65,
-	0x2a, 0x39, 0x0a, 0x0f, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x4d, 0x73, 0x67, 0x53, 0x74, 0x61,
-	0x74, 0x75, 0x73, 0x12, 0x0c, 0x0a, 0x08, 0x4d, 0x73, 0x67, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x10,
-	0x00, 0x12, 0x0b, 0x0a, 0x07, 0x4d, 0x73, 0x67, 0x53, 0x65, 0x6e, 0x64, 0x10, 0x01, 0x12, 0x0b,
-	0x0a, 0x07, 0x4d, 0x73, 0x67, 0x52, 0x65, 0x61, 0x64, 0x10, 0x02, 0x42, 0x0e, 0x5a, 0x0c, 0x2e,
-	0x2e, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x70, 0x62, 0x50, 0x00, 0x50, 0x01, 0x50,
-	0x02, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x17, 0x0a, 0x07, 0x6d, 0x73, 0x67, 0x5f, 0x73, 0x65, 0x71, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03,
+	0x52, 0x06, 0x6d, 0x73, 0x67, 0x53, 0x65, 0x71, 0x12, 0x19, 0x0a, 0x08, 0x6d, 0x73, 0x67, 0x5f,
+	0x72, 0x61, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x07, 0x6d, 0x73, 0x67, 0x52,
+	0x61, 0x6e, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x66, 0x72, 0x6f, 0x6d, 0x5f, 0x69, 0x64, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x04, 0x52, 0x06, 0x66, 0x72, 0x6f, 0x6d, 0x49, 0x64, 0x12, 0x1d, 0x0a, 0x0a,
+	0x72, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x04, 0x20, 0x01, 0x28, 0x04,
+	0x52, 0x09, 0x72, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x49, 0x64, 0x12, 0x2c, 0x0a, 0x08, 0x6d,
+	0x73, 0x67, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x11, 0x2e,
+	0x70, 0x62, 0x2e, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x4d, 0x73, 0x67, 0x54, 0x79, 0x70, 0x65,
+	0x52, 0x07, 0x6d, 0x73, 0x67, 0x54, 0x79, 0x70, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x70, 0x61, 0x79,
+	0x6c, 0x6f, 0x61, 0x64, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x07, 0x70, 0x61, 0x79, 0x6c,
+	0x6f, 0x61, 0x64, 0x12, 0x1f, 0x0a, 0x0b, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x5f, 0x74, 0x69,
+	0x6d, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0a, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74,
+	0x54, 0x69, 0x6d, 0x65, 0x12, 0x1f, 0x0a, 0x0b, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x74,
+	0x69, 0x6d, 0x65, 0x18, 0x08, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0a, 0x73, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x54, 0x69, 0x6d, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x64, 0x73,
+	0x18, 0x0a, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x07, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x64, 0x73, 0x12,
+	0x15, 0x0a, 0x06, 0x6d, 0x73, 0x67, 0x5f, 0x69, 0x64, 0x18, 0x0b, 0x20, 0x01, 0x28, 0x03, 0x52,
+	0x05, 0x6d, 0x73, 0x67, 0x49, 0x64, 0x12, 0x10, 0x0a, 0x03, 0x73, 0x65, 0x71, 0x18, 0x0c, 0x20,
+	0x01, 0x28, 0x03, 0x52, 0x03, 0x73, 0x65, 0x71, 0x22, 0xa2, 0x01, 0x0a, 0x13, 0x50, 0x61, 0x63,
+	0x6b, 0x65, 0x74, 0x50, 0x72, 0x69, 0x76, 0x61, 0x74, 0x65, 0x4d, 0x73, 0x67, 0x41, 0x63, 0x6b,
+	0x12, 0x17, 0x0a, 0x07, 0x6d, 0x73, 0x67, 0x5f, 0x73, 0x65, 0x71, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x03, 0x52, 0x06, 0x6d, 0x73, 0x67, 0x53, 0x65, 0x71, 0x12, 0x19, 0x0a, 0x08, 0x6d, 0x73, 0x67,
+	0x5f, 0x72, 0x61, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x07, 0x6d, 0x73, 0x67,
+	0x52, 0x61, 0x6e, 0x64, 0x12, 0x2e, 0x0a, 0x08, 0x72, 0x65, 0x74, 0x5f, 0x63, 0x6f, 0x64, 0x65,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x13, 0x2e, 0x70, 0x62, 0x2e, 0x50, 0x61, 0x63, 0x6b,
+	0x65, 0x74, 0x4d, 0x73, 0x67, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x07, 0x72, 0x65, 0x74,
+	0x43, 0x6f, 0x64, 0x65, 0x12, 0x15, 0x0a, 0x06, 0x6d, 0x73, 0x67, 0x5f, 0x69, 0x64, 0x18, 0x04,
+	0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x6d, 0x73, 0x67, 0x49, 0x64, 0x12, 0x10, 0x0a, 0x03, 0x73,
+	0x65, 0x71, 0x18, 0x05, 0x20, 0x01, 0x28, 0x03, 0x52, 0x03, 0x73, 0x65, 0x71, 0x22, 0x66, 0x0a,
+	0x17, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x50, 0x72, 0x69, 0x76, 0x61, 0x74, 0x65, 0x4d, 0x73,
+	0x67, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x12, 0x1e, 0x0a, 0x0b, 0x6c, 0x61, 0x73, 0x74,
+	0x5f, 0x6d, 0x73, 0x67, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x09, 0x6c,
+	0x61, 0x73, 0x74, 0x4d, 0x73, 0x67, 0x49, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x73, 0x69, 0x7a, 0x65,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x04, 0x73, 0x69, 0x7a, 0x65, 0x12, 0x17, 0x0a, 0x07,
+	0x75, 0x73, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x06, 0x75,
+	0x73, 0x65, 0x72, 0x49, 0x64, 0x22, 0x8f, 0x01, 0x0a, 0x18, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74,
+	0x50, 0x72, 0x69, 0x76, 0x61, 0x74, 0x65, 0x4d, 0x73, 0x67, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65,
+	0x73, 0x70, 0x12, 0x26, 0x0a, 0x08, 0x72, 0x65, 0x74, 0x5f, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0e, 0x32, 0x0b, 0x2e, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x74, 0x43, 0x6f, 0x64,
+	0x65, 0x52, 0x07, 0x72, 0x65, 0x74, 0x43, 0x6f, 0x64, 0x65, 0x12, 0x28, 0x0a, 0x04, 0x6c, 0x69,
+	0x73, 0x74, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x70, 0x62, 0x2e, 0x50, 0x61,
+	0x63, 0x6b, 0x65, 0x74, 0x50, 0x72, 0x69, 0x76, 0x61, 0x74, 0x65, 0x4d, 0x73, 0x67, 0x52, 0x04,
+	0x6c, 0x69, 0x73, 0x74, 0x12, 0x21, 0x0a, 0x0c, 0x69, 0x73, 0x5f, 0x63, 0x6f, 0x6d, 0x70, 0x6c,
+	0x65, 0x74, 0x65, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x69, 0x73, 0x43, 0x6f,
+	0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x22, 0x30, 0x0a, 0x15, 0x50, 0x61, 0x63, 0x6b, 0x65,
+	0x74, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x46, 0x72, 0x69, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x71,
+	0x12, 0x17, 0x0a, 0x07, 0x75, 0x73, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x04, 0x52, 0x06, 0x75, 0x73, 0x65, 0x72, 0x49, 0x64, 0x22, 0x40, 0x0a, 0x16, 0x50, 0x61, 0x63,
+	0x6b, 0x65, 0x74, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x46, 0x72, 0x69, 0x65, 0x6e, 0x64, 0x52,
+	0x65, 0x73, 0x70, 0x12, 0x26, 0x0a, 0x08, 0x72, 0x65, 0x74, 0x5f, 0x63, 0x6f, 0x64, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0b, 0x2e, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x74, 0x43, 0x6f,
+	0x64, 0x65, 0x52, 0x07, 0x72, 0x65, 0x74, 0x43, 0x6f, 0x64, 0x65, 0x22, 0x47, 0x0a, 0x14, 0x50,
+	0x61, 0x63, 0x6b, 0x65, 0x74, 0x46, 0x72, 0x69, 0x65, 0x6e, 0x64, 0x41, 0x70, 0x70, 0x6c, 0x79,
+	0x52, 0x65, 0x71, 0x12, 0x17, 0x0a, 0x07, 0x75, 0x73, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x04, 0x52, 0x06, 0x75, 0x73, 0x65, 0x72, 0x49, 0x64, 0x12, 0x16, 0x0a, 0x06,
+	0x72, 0x65, 0x61, 0x73, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x72, 0x65,
+	0x61, 0x73, 0x6f, 0x6e, 0x22, 0x7d, 0x0a, 0x15, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x46, 0x72,
+	0x69, 0x65, 0x6e, 0x64, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x52, 0x65, 0x73, 0x70, 0x12, 0x26, 0x0a,
+	0x08, 0x72, 0x65, 0x74, 0x5f, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32,
+	0x0b, 0x2e, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x74, 0x43, 0x6f, 0x64, 0x65, 0x52, 0x07, 0x72, 0x65,
+	0x74, 0x43, 0x6f, 0x64, 0x65, 0x12, 0x2c, 0x0a, 0x12, 0x69, 0x73, 0x5f, 0x63, 0x6f, 0x6d, 0x70,
+	0x6c, 0x65, 0x74, 0x65, 0x5f, 0x66, 0x72, 0x69, 0x65, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x08, 0x52, 0x10, 0x69, 0x73, 0x43, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x46, 0x72, 0x69,
+	0x65, 0x6e, 0x64, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x05, 0x52,
+	0x02, 0x69, 0x64, 0x22, 0x60, 0x0a, 0x15, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x46, 0x72, 0x69,
+	0x65, 0x6e, 0x64, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x12, 0x0e, 0x0a, 0x02,
+	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x02, 0x69, 0x64, 0x12, 0x12, 0x0a, 0x04,
+	0x66, 0x6c, 0x61, 0x67, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x04, 0x66, 0x6c, 0x61, 0x67,
+	0x12, 0x23, 0x0a, 0x0d, 0x72, 0x65, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x72, 0x65, 0x61, 0x73, 0x6f,
+	0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x72, 0x65, 0x6a, 0x65, 0x63, 0x74, 0x52,
+	0x65, 0x61, 0x73, 0x6f, 0x6e, 0x22, 0x40, 0x0a, 0x16, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x46,
+	0x72, 0x69, 0x65, 0x6e, 0x64, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x12,
+	0x26, 0x0a, 0x08, 0x72, 0x65, 0x74, 0x5f, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0e, 0x32, 0x0b, 0x2e, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x74, 0x43, 0x6f, 0x64, 0x65, 0x52, 0x07,
+	0x72, 0x65, 0x74, 0x43, 0x6f, 0x64, 0x65, 0x2a, 0x38, 0x0a, 0x0f, 0x50, 0x61, 0x63, 0x6b, 0x65,
+	0x74, 0x4d, 0x73, 0x67, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x0c, 0x0a, 0x08, 0x4d, 0x73,
+	0x67, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x4d, 0x73, 0x67, 0x41,
+	0x63, 0x6b, 0x10, 0x01, 0x12, 0x0b, 0x0a, 0x07, 0x4d, 0x73, 0x67, 0x52, 0x65, 0x61, 0x64, 0x10,
+	0x02, 0x42, 0x0e, 0x5a, 0x0c, 0x2e, 0x2e, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x70,
+	0x62, 0x50, 0x00, 0x50, 0x01, 0x50, 0x02, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -527,33 +1084,46 @@ func file_pb_packet_friend_proto_rawDescGZIP() []byte {
 }
 
 var file_pb_packet_friend_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pb_packet_friend_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_pb_packet_friend_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_pb_packet_friend_proto_goTypes = []interface{}{
-	(PacketMsgStatus)(0),           // 0: pb.PacketMsgStatus
-	(*PacketGetFriendListReq)(nil), // 1: pb.PacketGetFriendListReq
-	(*PacketGetFriendListRes)(nil), // 2: pb.PacketGetFriendListRes
-	(*PacketGetFriendReq)(nil),     // 3: pb.PacketGetFriendReq
-	(*PacketGetFriendRes)(nil),     // 4: pb.PacketGetFriendRes
-	(*PacketPrivateMsg)(nil),       // 5: pb.PacketPrivateMsg
-	(*PacketPrivateMsgAck)(nil),    // 6: pb.PacketPrivateMsgAck
-	(RetCode)(0),                   // 7: pb.RetCode
-	(*Friend)(nil),                 // 8: pb.Friend
-	(*Nav)(nil),                    // 9: pb.Nav
-	(PacketMsgType)(0),             // 10: pb.PacketMsgType
+	(PacketMsgStatus)(0),             // 0: pb.PacketMsgStatus
+	(*PacketGetFriendListReq)(nil),   // 1: pb.PacketGetFriendListReq
+	(*PacketGetFriendListRes)(nil),   // 2: pb.PacketGetFriendListRes
+	(*PacketGetFriendReq)(nil),       // 3: pb.PacketGetFriendReq
+	(*PacketGetFriendRes)(nil),       // 4: pb.PacketGetFriendRes
+	(*PacketPrivateMsg)(nil),         // 5: pb.PacketPrivateMsg
+	(*PacketPrivateMsgAck)(nil),      // 6: pb.PacketPrivateMsgAck
+	(*PacketPrivateMsgListReq)(nil),  // 7: pb.PacketPrivateMsgListReq
+	(*PacketPrivateMsgListResp)(nil), // 8: pb.PacketPrivateMsgListResp
+	(*PacketRemoveFriendReq)(nil),    // 9: pb.PacketRemoveFriendReq
+	(*PacketRemoveFriendResp)(nil),   // 10: pb.PacketRemoveFriendResp
+	(*PacketFriendApplyReq)(nil),     // 11: pb.PacketFriendApplyReq
+	(*PacketFriendApplyResp)(nil),    // 12: pb.PacketFriendApplyResp
+	(*PacketFriendHandleReq)(nil),    // 13: pb.PacketFriendHandleReq
+	(*PacketFriendHandleResp)(nil),   // 14: pb.PacketFriendHandleResp
+	(RetCode)(0),                     // 15: pb.RetCode
+	(*Friend)(nil),                   // 16: pb.Friend
+	(*Nav)(nil),                      // 17: pb.Nav
+	(PacketMsgType)(0),               // 18: pb.PacketMsgType
 }
 var file_pb_packet_friend_proto_depIdxs = []int32{
-	7,  // 0: pb.PacketGetFriendListRes.ret_code:type_name -> pb.RetCode
-	8,  // 1: pb.PacketGetFriendListRes.list:type_name -> pb.Friend
-	9,  // 2: pb.PacketGetFriendListRes.nav:type_name -> pb.Nav
-	7,  // 3: pb.PacketGetFriendRes.ret_code:type_name -> pb.RetCode
-	8,  // 4: pb.PacketGetFriendRes.friend:type_name -> pb.Friend
-	10, // 5: pb.PacketPrivateMsg.msg_type:type_name -> pb.PacketMsgType
+	15, // 0: pb.PacketGetFriendListRes.ret_code:type_name -> pb.RetCode
+	16, // 1: pb.PacketGetFriendListRes.list:type_name -> pb.Friend
+	17, // 2: pb.PacketGetFriendListRes.nav:type_name -> pb.Nav
+	15, // 3: pb.PacketGetFriendRes.ret_code:type_name -> pb.RetCode
+	16, // 4: pb.PacketGetFriendRes.friend:type_name -> pb.Friend
+	18, // 5: pb.PacketPrivateMsg.msg_type:type_name -> pb.PacketMsgType
 	0,  // 6: pb.PacketPrivateMsgAck.ret_code:type_name -> pb.PacketMsgStatus
-	7,  // [7:7] is the sub-list for method output_type
-	7,  // [7:7] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	15, // 7: pb.PacketPrivateMsgListResp.ret_code:type_name -> pb.RetCode
+	5,  // 8: pb.PacketPrivateMsgListResp.list:type_name -> pb.PacketPrivateMsg
+	15, // 9: pb.PacketRemoveFriendResp.ret_code:type_name -> pb.RetCode
+	15, // 10: pb.PacketFriendApplyResp.ret_code:type_name -> pb.RetCode
+	15, // 11: pb.PacketFriendHandleResp.ret_code:type_name -> pb.RetCode
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_pb_packet_friend_proto_init() }
@@ -637,6 +1207,102 @@ func file_pb_packet_friend_proto_init() {
 				return nil
 			}
 		}
+		file_pb_packet_friend_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PacketPrivateMsgListReq); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pb_packet_friend_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PacketPrivateMsgListResp); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pb_packet_friend_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PacketRemoveFriendReq); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pb_packet_friend_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PacketRemoveFriendResp); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pb_packet_friend_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PacketFriendApplyReq); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pb_packet_friend_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PacketFriendApplyResp); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pb_packet_friend_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PacketFriendHandleReq); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pb_packet_friend_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PacketFriendHandleResp); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -644,7 +1310,7 @@ func file_pb_packet_friend_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pb_packet_friend_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

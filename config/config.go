@@ -50,19 +50,23 @@ type Config struct {
 	} `mapstructure:"rabbitmq"`
 
 	Services struct {
-		//接入层
+		//网关层,用于动态分配目标服务器
+		Gateway struct {
+			HttpPort int `mapstructure:"http_port"` //http服务端口
+		}
+		//接入层(需要单独配置唯一ID)
 		Connect struct {
 			Id      uint32 //服务ID
 			WsPort  int    `mapstructure:"ws_port"`  //ws服务端口
 			TcpPort int    `mapstructure:"tcp_port"` //tcp服务端口
 			RpcPort int    `mapstructure:"rpc_port"` //rpc服务端口
 		}
-		//业务层
+		//业务层(支持无状态多服务器)
 		Logic struct {
-			Id      int //服务ID
-			RpcPort int `mapstructure:"rpc_port"` //rpc服务端口
+			Id      uint32 //这里暂时不确定是否需要设定ID,因为需要雪花算法
+			RpcPort int    `mapstructure:"rpc_port"` //rpc服务端口
 		}
-		//消息中心
+		//消息中心(支持无状态多服务器)
 		Message struct {
 		}
 	}

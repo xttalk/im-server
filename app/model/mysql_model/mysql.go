@@ -1,5 +1,9 @@
 package mysql_model
 
+const (
+	IDX_UserFriendRequestOnlyRequest = "idx_only_request"
+)
+
 // User 用户表
 type User struct {
 	ID           uint64 //用户ID
@@ -15,6 +19,7 @@ type User struct {
 	Status       int    //账号状态
 }
 
+// UserFriend 好友表
 type UserFriend struct {
 	ID         uint64 //好友关系ID
 	Uid        uint64 //用户ID
@@ -22,4 +27,25 @@ type UserFriend struct {
 	AddTime    int64  //成为好友时间
 	RemarkName string //好友备注
 	Friend     User   `gorm:"foreignKey:id;references:fid"` //好友的模型
+}
+
+type UserFriendRequestStatus int
+
+const (
+	UserFriendRequestStatusWait   UserFriendRequestStatus = 1 //等待处理
+	UserFriendRequestStatusAccept UserFriendRequestStatus = 2 //同意
+	UserFriendRequestStatusReject UserFriendRequestStatus = 3 //拒绝
+)
+
+// UserFriendRequest 好友验证消息
+type UserFriendRequest struct {
+	Id          int                     //验证ID
+	FromUid     uint64                  //发起方
+	ToUid       uint64                  //接受方
+	RequestTime int64                   //请求时间
+	Reason      string                  //验证消息
+	Status      UserFriendRequestStatus //验证状态
+	LastTime    int64                   //最后更新时间,指的是每次新增更新和首次新增
+
+	RejectReason string //拒绝原因
 }

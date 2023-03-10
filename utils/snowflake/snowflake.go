@@ -26,6 +26,7 @@ type Worker struct {
 }
 
 var work *Worker
+var works = make(map[int64]*Worker)
 
 func InitSnowFlake(workerId int64) error {
 	if workerId < 0 || workerId > workerMax {
@@ -39,11 +40,25 @@ func InitSnowFlake(workerId int64) error {
 	}
 	return nil
 }
-
+func GetNextIdByServer(workerId int64) int64 {
+	work, h := works[workerId]
+	if !h {
+		work = &Worker{
+			timestamp: 0,
+			workerId:  workerId,
+			number:    0,
+		}
+		works[workerId] = work
+	}
+	return getNextWorkId(work)
+}
 func GetNextID() int64 {
 	if work == nil {
 		glog.Fatalf(gctx.New(), "雪花算法未初始化")
 	}
+	return getNextWorkId(work)
+}
+func getNextWorkId(work *Worker) int64 {
 	work.mu.Lock()
 	defer work.mu.Unlock()
 	now := time.Now().UnixNano() / 1e6

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"XtTalkServer/services/logic"
+	"XtTalkServer/internal/logic"
 )
 
 func main() {

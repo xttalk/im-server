@@ -7,6 +7,12 @@ import (
 	"github.com/streadway/amqp"
 )
 
+type ConsumerOptions struct {
+	QueueName string //消费队列名称
+	SyncLimit int    //同时运行数量
+	RetrySize int    //失败重试次数,0=不重试
+}
+
 type Channel struct {
 	*amqp.Channel
 	conn         *Connection
@@ -21,25 +27,23 @@ func (ch *Channel) Close() error {
 	return ch.conn.CloseChannel(ch)
 }
 
-func (c *Channel) CreateConsumer(ctx context.Context, syncLimit int, queueName string, callback func(context.Context, amqp.Delivery) error) error {
-	if 0 >= syncLimit {
-		syncLimit = 1
+func (c *Channel) CreateConsumer(ctx context.Context, options ConsumerOptions, callback func(context.Context, amqp.Delivery)) error {
+	if 0 >= options.SyncLimit {
+		options.SyncLimit = 1
 	}
-	deliverys, err := c.Consume(queueName, "", false, false, false, false, nil)
+	deliverys, err := c.Consume(options.QueueName, "", false, false, false, false, nil)
 	if err != nil {
 		return err
 	}
-	glog.Infof(ctx, "消费者已建立,当前读取队列: %s", queueName)
-	ch := make(chan bool, syncLimit) //允许同时执行的数量
+	glog.Infof(ctx, "消费者已建立,当前读取队列: %s", options.QueueName)
+	ch := make(chan bool, options.SyncLimit) //允许同时执行的数量
 	for msg := range deliverys {
 		ch <- true
 		go func(msg amqp.Delivery) {
 			defer func() {
 				<-ch
 			}()
-			if err := callback(ctx, msg); err != nil {
-				glog.Warningf(ctx, "消息处理失败: %s", err)
-			}
+			callback(ctx, msg)
 		}(msg)
 	}
 	return nil
