@@ -135,7 +135,7 @@ func (c *Client) SendBytes(bytes []byte) (err error) {
 	case TcpClientMode:
 		_, err = c.conn.Write(bytes)
 	case WsClientMode:
-		err = wsutil.WriteServerMessage(c.conn, ws.OpText, bytes)
+		err = wsutil.WriteServerMessage(c.conn, ws.OpBinary, bytes) //必须使用ws.OpBinary发送二进制数据,否则浏览器端无法处理
 	}
 	return
 }

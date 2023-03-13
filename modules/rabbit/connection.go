@@ -1,8 +1,6 @@
 package rabbit
 
 import (
-	"context"
-	"github.com/gogf/gf/v2/os/glog"
 	"github.com/streadway/amqp"
 	"sync"
 	"sync/atomic"
@@ -38,17 +36,17 @@ func (c *Connection) NewChannel() (*Channel, error) {
 		conn:         c,
 		chanIdentity: atomic.AddInt64(&c.channelSerialNumber, 1),
 	}
-	chCloseEvent := make(chan *amqp.Error)
-	ch.NotifyClose(chCloseEvent)
-	go func() {
-		select {
-		case err := <-chCloseEvent:
-			if c != nil {
-				c.isClose = true
-			}
-			glog.Warningf(context.TODO(), err.Error())
-		}
-	}()
+	//chCloseEvent := make(chan *amqp.Error)
+	//ch.NotifyClose(chCloseEvent)
+	//go func() {
+	//	select {
+	//	case err := <-chCloseEvent:
+	//		if c != nil {
+	//			c.isClose = true
+	//		}
+	//		glog.Warningf(context.TODO(), err.Error())
+	//	}
+	//}()
 	return channel, nil
 }
 

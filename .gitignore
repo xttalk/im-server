@@ -5,3 +5,8 @@
 /*.yaml
 /logs
 .DS_Store
+/config.yaml
+/connect_1.yaml
+/connect_2.yaml
+/logic_1.yaml
+/logic_2.yaml
