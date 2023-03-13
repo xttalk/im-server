@@ -43,6 +43,11 @@ func (XtTalkTcpCodec) DecodeBytes(data []byte) (*FixedHeader, []byte, error) {
 		return nil, nil, gerror.Newf("读取数据长度失败: %s", err.Error())
 	}
 	dataBytes := data[DataPackHeaderLength:]
+	//g.Dump(g.Map{
+	//	"head": dataHead,
+	//	"data": dataBytes,
+	//})
+
 	return &dataHead, dataBytes, nil
 }
 func (XtTalkTcpCodec) Decode(conn gnet.Conn) (*FixedHeader, []byte, error) {

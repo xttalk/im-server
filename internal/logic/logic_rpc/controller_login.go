@@ -31,7 +31,7 @@ func (_LoginController) Login(device logic_model.ConnDevice, req *pb.PacketLogin
 	if err := global.Redis.HSetNX(device.Context, fmt.Sprintf(conts.RK_UserDevice, uid), device.SessionId, device.ServerId).Err(); err != nil {
 		return nil, err
 	}
-	fmt.Println("用户登录", uid)
+	fmt.Println("用户登录成功", uid)
 	res = &pb.PacketLoginRes{
 		RetCode: pb.RetCode_Success,
 		Uid:     uid,

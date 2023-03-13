@@ -72,7 +72,7 @@ func (c *_CoreServer) OnClose(client *Client) {
 
 // OnMessage 消息接收
 func (c *_CoreServer) OnMessage(client *Client, head *types.FixedHeader, data []byte) {
-	client.Infof("收到客户端数据 -> %s", data)
+	client.Infof("收到客户端数据 -> %v -> %v", head.Command, head.Sequence)
 
 	reqPacket := pb.Packet(head.Command) //请求的数据包
 	if reqPacket != pb.Packet_Login && client.Uid == 0 {
@@ -106,7 +106,7 @@ func (c *_CoreServer) OnMessage(client *Client, head *types.FixedHeader, data []
 		return //不发送
 	}
 
-	client.Debugf("发送客户端数据: %v -> %v -> %v -> %s", head.Command, head.Sequence, len(res.Data), res.Data)
+	client.Debugf("发送客户端数据: %v -> %v -> %v", head.Command, head.Sequence, res.Command)
 	if err := client.SendClientPacket(head.Sequence, res.Command, res.Data); err != nil {
 		client.Warningf("发送客户端数据失败: %s", err.Error())
 		//client.Close() //不断开

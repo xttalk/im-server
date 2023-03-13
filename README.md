@@ -1,4 +1,6 @@
 # XtTalk即时通讯
+这是一个尝试从0开始探索的IM项目,也不确定这个项目是否能够成功完成,目前处于一步一步探索中。预计想要实现的功能:私聊、群聊、音频、推流视频。
+项目。
 
 #### 前置依赖组件
 - Mysql
@@ -8,10 +10,10 @@
 - Rabbitmq
 
 #### 系统架构
-- Gateway
-- Connect
-- Logic
-- Message
+- [ ] Gateway 网关层
+- [x] Connect 连接层
+- [x] Logic 逻辑层
+- [x] Message 消息中心
 
 #### 支持连接协议
 - Websocket
