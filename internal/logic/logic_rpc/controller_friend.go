@@ -52,8 +52,9 @@ func (_FriendController) GetFriendList(device logic_model.ConnDevice, req *pb.Pa
 		return
 	}
 	res = &pb.PacketGetFriendListRes{
-		List: make([]*pb.Friend, 0),
-		Nav:  model.BuildNavPb(nav, resultTotal),
+		List:    make([]*pb.Friend, 0),
+		Nav:     model.BuildNavPb(nav, resultTotal),
+		RetCode: pb.RetCode_Success,
 	}
 	for _, item := range resultList {
 		res.List = append(res.List, &pb.Friend{
