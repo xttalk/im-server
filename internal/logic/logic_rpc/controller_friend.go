@@ -369,6 +369,7 @@ func (_FriendController) GetMessageList(device logic_model.ConnDevice, req *pb.P
 				Payload:    item.Payload,
 				Extends:    item.Extends,
 				MsgType:    item.MsgType,
+				MsgId:      item.MsgId,
 			},
 		}, res.List...)
 	}
