@@ -17,6 +17,10 @@ type User struct {
 	LoginTime    int64  //上次登录时间
 	LoginIp      string //上次登录IP
 	Status       int    //账号状态
+
+	Age  uint32 //年龄
+	Sex  uint32 //性别
+	Note string //签名
 }
 
 // UserFriend 好友表

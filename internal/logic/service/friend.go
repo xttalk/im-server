@@ -194,14 +194,6 @@ func (c *friendService) RemoveFriend(uid1, uid2 uint64) error {
 	}); err != nil {
 		return err
 	}
-	//todo 2.发送通知事件
-	go func() {
-		//1.给对方发送好友删除事件
-
-		//2.给自己其他在线设备发送该好友移除
-
-	}()
-
 	return nil
 }
 
@@ -209,7 +201,7 @@ func (c *friendService) RemoveFriend(uid1, uid2 uint64) error {
 func (c *friendService) GetFriend(uid, fid uint64) (*pb.Friend, pb.RetCode) {
 	var result mysql_model.UserFriend
 	if err := global.Db.Preload("Friend", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id,username,nickname")
+		return db.Select("id,username,nickname,note,age,sex")
 	}).Where("uid = ? AND fid = ?", uid, fid).First(&result).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, pb.RetCode_FriendNotFound
@@ -223,5 +215,9 @@ func (c *friendService) GetFriend(uid, fid uint64) (*pb.Friend, pb.RetCode) {
 		Nickname: result.Friend.Nickname,
 		Username: result.Friend.Username,
 		Remark:   result.RemarkName,
+
+		Note: result.Friend.Note,
+		Age:  result.Friend.Age,
+		Sex:  result.Friend.Sex,
 	}, pb.RetCode_Success
 }

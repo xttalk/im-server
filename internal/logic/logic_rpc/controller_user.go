@@ -25,12 +25,15 @@ func (_UserController) GetProfile(device logic_model.ConnDevice, req *pb.PacketG
 	}
 
 	res = &pb.PacketGetProfileRes{
-		Sex:      1,
-		Age:      2,
-		NickName: user.Nickname,
-		Email:    user.Email,
-		UserId:   user.ID,
-		Note:     "默认签名",
+		User: &pb.SelfUser{
+			Sex:      user.Sex,
+			Age:      user.Age,
+			Nickname: user.Nickname,
+			Username: user.Username,
+			Email:    user.Email,
+			UserId:   user.ID,
+			Note:     user.Note,
+		},
 	}
 	return
 }
@@ -59,7 +62,7 @@ func (_UserController) GetUser(device logic_model.ConnDevice, req *pb.PacketGetU
 	res = &pb.PacketGetUserInfoResp{}
 	var user mysql_model.User
 	if err := global.Db.
-		Select("id,username,nickname").
+		Select("id,username,nickname,sex,age,note").
 		Where("username = ?", req.GetUsername()).
 		First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -75,6 +78,9 @@ func (_UserController) GetUser(device logic_model.ConnDevice, req *pb.PacketGetU
 		UserId:   user.ID,
 		Username: user.Username,
 		Nickname: user.Nickname,
+		Age:      user.Age,
+		Sex:      user.Sex,
+		Note:     user.Note,
 	}
 	return
 }

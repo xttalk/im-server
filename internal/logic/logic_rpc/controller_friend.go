@@ -44,7 +44,7 @@ func (_FriendController) GetFriendList(device logic_model.ConnDevice, req *pb.Pa
 		return
 	}
 	if err := global.Db.Preload("Friend", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id,nickname,username")
+		return db.Select("id,nickname,username,note,age,sex")
 	}).Scopes(nav.UseNav).Where("uid = ?", device.UserId).Find(&resultList).Error; err != nil {
 		res = &pb.PacketGetFriendListRes{
 			RetCode: pb.RetCode_Error,
@@ -63,6 +63,9 @@ func (_FriendController) GetFriendList(device logic_model.ConnDevice, req *pb.Pa
 			Nickname: item.Friend.Nickname,
 			Username: item.Friend.Username,
 			Remark:   item.RemarkName,
+			Note:     item.Friend.Note,
+			Age:      item.Friend.Age,
+			Sex:      item.Friend.Sex,
 		})
 	}
 	return
